@@ -81,7 +81,26 @@ class WRPA_Admin {
         $members = [];
 
         foreach ($users as $u) {
-            $plan = get_user_meta($u->ID, 'wrpa_plan_name', true) ?: '—';
+            // 🧾 WooCommerce Subscriptions
+            $subscriptions = function_exists('wcs_get_users_subscriptions') ? wcs_get_users_subscriptions($u->ID) : [];
+
+            $plan = '—';
+            if (!empty($subscriptions)) {
+                foreach ($subscriptions as $subscription) {
+                    if (is_object($subscription) && method_exists($subscription, 'has_status') && $subscription->has_status(['active', 'on-hold', 'pending-cancel', 'expired'])) {
+                        $items = $subscription->get_items();
+                        if (!empty($items)) {
+                            $first_item = reset($items);
+                            $plan = (is_object($first_item) && method_exists($first_item, 'get_name')) ? $first_item->get_name() : '—';
+                        }
+                        break;
+                    }
+                }
+            }
+            if ($plan === '—') {
+                $plan = get_user_meta($u->ID, 'wrpa_plan_name', true) ?: '—';
+            }
+
             $start = get_user_meta($u->ID, 'wr_premium_access_start', true);
             $exp = get_user_meta($u->ID, 'wr_premium_access_expiry', true);
 
@@ -90,15 +109,39 @@ class WRPA_Admin {
             $days      = $exp ? floor(($exp - time()) / 86400) : 0;
             $status    = ($exp && time() < $exp) ? 'Active' : 'Expired';
 
+            // 📅 First subscription date (meta fallback)
+            $first_subscription_meta = get_user_meta($u->ID, 'wrpa_first_subscription_date', true);
+            if (!empty($first_subscription_meta)) {
+                $first_subscription = mysql2date(get_option('date_format') . ' H:i', $first_subscription_meta, false);
+            } else {
+                $first_subscription = '—';
+                if (!empty($subscriptions)) {
+                    $first_subscription_obj = reset($subscriptions);
+                    if (is_object($first_subscription_obj) && method_exists($first_subscription_obj, 'get_date_created')) {
+                        $created = $first_subscription_obj->get_date_created();
+                        if ($created && method_exists($created, 'date_i18n')) {
+                            $first_subscription = $created->date_i18n(get_option('date_format') . ' H:i');
+                        }
+                    }
+                }
+            }
+
+            // 🧍 Member array
+            $display_name = $u->display_name;
+            if (empty($display_name) || filter_var($display_name, FILTER_VALIDATE_EMAIL)) {
+                $display_name = ucfirst($u->user_login);
+            }
+
             $members[] = [
                 'ID'        => $u->ID,
-                'name'      => $u->display_name ?: $u->user_login,
+                'name'      => $display_name,
                 'email'     => $u->user_email,
                 'plan'      => $plan,
                 'start'     => $start_fmt,
                 'expiry'    => $exp_fmt,
                 'days_left' => $days,
                 'status'    => $status,
+                'first_subscription' => $first_subscription,
             ];
         }
 
@@ -157,9 +200,7 @@ class WRPA_Admin {
                 </thead>
                 <tbody>
                     <?php if ($members) : ?>
-                        <?php foreach ($members as $m) : 
-                            $first_date = get_user_meta($m['ID'], 'wrpa_first_subscription_date', true);
-                            ?>
+                        <?php foreach ($members as $m) : ?>
                             <tr>
                                 <td><?php echo esc_html($m['name']); ?></td>
                                 <td><?php echo esc_html($m['email']); ?></td>
@@ -168,7 +209,7 @@ class WRPA_Admin {
                                 <td><?php echo esc_html($m['expiry']); ?></td>
                                 <td><?php echo (int) $m['days_left']; ?></td>
                                 <td><?php echo esc_html($m['status']); ?></td>
-                                <td><?php echo esc_html($first_date ?: '—'); ?></td>
+                                <td><?php echo esc_html($m['first_subscription']); ?></td>
                             </tr>
                         <?php endforeach; ?>
                     <?php else : ?>
