@@ -25,12 +25,20 @@ class WRPA_Admin {
 
     public static function register_settings() {
         register_setting('wrpa_group', 'wrpa_settings');
+
         add_settings_section('wrpa_main', 'Abonelik Süreleri', '__return_false', 'wrpa');
 
+        // 🧩 Trial
         self::field('product_trial_id', 'Deneme Ürün (Trial) ID', 'number');
         self::field('trial_days', 'Süre (gün)', 'number');
+        self::field('trial_minutes', 'Süre (dakika)', 'number');
+
+        // 🧩 Monthly
         self::field('product_monthly_id', 'Aylık Ürün (Monthly) ID', 'number');
         self::field('monthly_days', 'Süre (gün)', 'number');
+        self::field('monthly_minutes', 'Süre (dakika)', 'number');
+
+        // 🧩 Yearly
         self::field('product_yearly_id', 'Yıllık Ürün (Yearly) ID', 'number');
         self::field('yearly_days', 'Süre (gün)', 'number');
 
@@ -56,7 +64,7 @@ class WRPA_Admin {
     }
 
     /* ======================================================
-     🧩 MEMBERS PAGE – v1.4.9.1 FINAL
+     🧩 MEMBERS PAGE – v1.4.9.2 FINAL
     ====================================================== */
     public static function members_page() {
         if ( ! current_user_can('manage_options') ) return;
@@ -101,7 +109,7 @@ class WRPA_Admin {
             $members = array_values($members);
         }
 
-        // CSV Export (UTF-8 + sade)
+        // 🧾 CSV Export (UTF-8 + sade)
         if (isset($_POST['wrpa_export_csv'])) {
             check_admin_referer('wrpa_members_export', 'wrpa_members_nonce');
             nocache_headers();
