@@ -1,77 +1,89 @@
 <?php
 /**
- * Plugin Name: Wisdom Rain Premium Access
- * Description: WooCommerce abonelik/erişim, CPT koruması, üye listesi ve e-posta otomasyonları.
- * Version: 1.0.0
- * Author: WR Dev
- * Requires at least: 6.0
+ * Class: WRPA_Access
+ * Description: Premium erişim süresi, plan kontrolü ve meta yönetimi.
  */
 
-if ( ! defined('ABSPATH') ) exit;
+if (!defined('ABSPATH')) exit;
 
-define('WRPA_VERSION', '1.0.0');
-define('WRPA_DIR', plugin_dir_path(__FILE__));
-define('WRPA_URL', plugin_dir_url(__FILE__));
+class WRPA_Access {
 
-register_activation_hook(__FILE__, function () {
-    // Varsayılan ayarlar
-    $defaults = array(
-        'product_trial_id'   => '',
-        'trial_days'         => 0,
-        'trial_minutes'      => 10,
-        'product_monthly_id' => '',
-        'monthly_days'       => 0,
-        'monthly_minutes'    => 10,
-        'product_yearly_id'  => '',
-        'yearly_days'        => 365,
-        'sender_name'        => 'Wisdom Rain',
-        'sender_email'       => get_option('admin_email'),
-        'protected_cpts'     => array('library','music','meditation','children_story','sleep_story','magazine'),
-        'subscribe_url'      => home_url('/subscribe'),
-        // Basit şablonlar (kısa yer tutucular)
-        'tpl_welcome'        => "Hi {name},\nWelcome to Wisdom Rain! Your access has started.",
-        'tpl_thanks'         => "Thanks {name}! Your order is completed.",
-        'tpl_expiry'         => "Hi {name}, your premium access will expire in {days_left} days.",
-        'tpl_holiday'        => "Warm wishes, {name}! Enjoy special moments with Wisdom Rain."
-    );
-    add_option('wrpa_settings', $defaults, '', false);
-
-    // Cron tanımları
-    if ( ! wp_next_scheduled('wrpa_cron_5min') ) {
-        wp_schedule_event(time(), 'wrpa_five_minutes', 'wrpa_cron_5min');
-    }
-    if ( ! wp_next_scheduled('wrpa_cron_daily') ) {
-        wp_schedule_event(time(), 'daily', 'wrpa_cron_daily');
-    }
-});
-
-register_deactivation_hook(__FILE__, function () {
-    wp_clear_scheduled_hook('wrpa_cron_5min');
-    wp_clear_scheduled_hook('wrpa_cron_daily');
-});
-
-add_filter('cron_schedules', function ($s) {
-    $s['wrpa_five_minutes'] = array('interval' => 300, 'display' => __('Every 5 Minutes','wrpa'));
-    return $s;
-});
-
-// Includes
-require_once WRPA_DIR . 'includes/class-wrpa-core.php';
-require_once WRPA_DIR . 'includes/class-wrpa-access.php';
-require_once WRPA_DIR . 'includes/class-wrpa-admin.php';
-require_once WRPA_DIR . 'includes/class-wrpa-email.php';
-
-// Bootstrap
-add_action('plugins_loaded', function () {
-    if ( ! class_exists('WooCommerce') ) {
-        add_action('admin_notices', function () {
-            echo '<div class="notice notice-error"><p><strong>Wisdom Rain Premium Access</strong> WooCommerce gerektirir.</p></div>';
-        });
-        return;
+    // 🔧 Eklenti başlangıç noktası (boş init metodu)
+    public static function init() {
+        // Gelecekte kullanılacak hook'lar buraya eklenecek
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('WRPA_Access::init() çağrıldı.');
+        }
     }
 
-    WRPA_Core::init();
-    WRPA_Access::init();
-    WRPA_Admin::init();
-    WRPA_Email::init();
-});
+    public static function grant_access($user_id, $order, $settings) {
+        $has_monthly = isset($settings['monthly_days']) && $settings['monthly_days'] > 0;
+        $has_trial   = isset($settings['trial_days']) && $settings['trial_days'] > 0;
+
+        if ($has_monthly) {
+            $selected_plan = 'monthly';
+            $duration = WRPA_Core::seconds_from($settings['monthly_days'], $settings['monthly_minutes']);
+        } elseif ($has_trial) {
+            $selected_plan = 'trial';
+            $duration = WRPA_Core::seconds_from($settings['trial_days'], $settings['trial_minutes']);
+        }
+
+        if (empty($selected_plan) || $duration <= 0) {
+            return;
+        }
+
+        // 🧠 Her yeni siparişte eski erişimi sıfırla
+        delete_user_meta($user_id, 'wr_premium_access_expiry');
+
+        $now    = time();
+        $expiry = $now + intval($duration);
+
+        update_user_meta($user_id, 'wr_premium_access_start', $now);
+        update_user_meta($user_id, 'wr_premium_access_expiry', $expiry);
+
+        if ($selected_plan === 'trial') {
+            update_user_meta($user_id, 'wrpa_trial_used', true);
+        }
+
+        // 🚀 İlk abonelik tarihini ve plan adını kaydet
+        if (!get_user_meta($user_id, 'wrpa_first_subscription_date', true)) {
+            update_user_meta($user_id, 'wrpa_first_subscription_date', current_time('mysql'));
+        }
+
+        foreach ($order->get_items() as $item) {
+            $plan_name = $item->get_name();
+            if (!empty($plan_name)) {
+                update_user_meta($user_id, 'wrpa_plan_name', sanitize_text_field($plan_name));
+            }
+            break;
+        }
+
+        // 🔁 Cache & session tazele
+        self::purge_user_cache($user_id);
+        wp_cache_delete($user_id, 'user_meta');
+        wp_set_auth_cookie($user_id);
+
+        // 🚫 Cache bypass cookie (LiteSpeed & Cloudflare uyumlu)
+        setcookie('wrpa_nocache', '1', time() + 300, COOKIEPATH, COOKIE_DOMAIN);
+        if (function_exists('litespeed_purge_user')) {
+            litespeed_purge_user($user_id);
+        }
+
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log(sprintf(
+                'WRPA: Access granted | user=%d plan=%s start=%s expiry=%s',
+                $user_id,
+                $selected_plan,
+                date('Y-m-d H:i:s', $now),
+                date('Y-m-d H:i:s', $expiry)
+            ));
+        }
+    }
+
+    /**
+     * Süresi dolan kullanıcıları otomatik yönlendirir
+     */
+    public static function redirect_expired_users() {
+        // ...
+    }
+}
