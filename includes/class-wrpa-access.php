@@ -519,6 +519,20 @@ class WRPA_Access {
             return false;
         }
 
+        $verification_meta_key = class_exists( '\\WRPA\\WRPA_Email' ) ? \WRPA\WRPA_Email::META_VERIFIED : '_wrpa_email_verified';
+        $verified_flag         = get_user_meta( $checked_user_id, $verification_meta_key, true );
+
+        if ( '1' !== (string) $verified_flag ) {
+            if ( method_exists( __CLASS__, 'log' ) ) {
+                self::log(
+                    'WRPA access denied — email address not verified.',
+                    [ 'user_id' => $checked_user_id ]
+                );
+            }
+
+            return false;
+        }
+
         return self::user_has_access( $post_id, $checked_user_id );
     }
 
@@ -904,6 +918,15 @@ class WRPA_Access {
             $action         = $extended ? 'extended' : 'granted';
 
             self::log( sprintf( 'WRPA access %s for user %d via order #%d (%s plan). Previous expiry: %s. New expiry: %s.', $action, $user_id, $order_id, $matched_plan['key'], $previous_label, $new_label ) );
+        }
+
+        if ( class_exists( '\\WRPA\\WRPA_Email' ) ) {
+            $verification_meta_key = \WRPA\WRPA_Email::META_VERIFIED;
+            $verified_flag         = get_user_meta( $user_id, $verification_meta_key, true );
+
+            if ( '1' !== (string) $verified_flag ) {
+                \WRPA\WRPA_Email::send_verification( $user_id );
+            }
         }
     }
 
