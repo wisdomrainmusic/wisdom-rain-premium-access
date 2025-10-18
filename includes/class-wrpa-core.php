@@ -79,9 +79,7 @@ class WRPA_Core {
      * @return void
      */
     private static function init_hooks() {
-        if ( ! has_action( 'plugins_loaded', [ 'WRPA\\WRPA_Admin', 'init' ] ) ) {
-            add_action( 'plugins_loaded', [ 'WRPA\\WRPA_Admin', 'init' ] );
-        }
+        \WRPA\WRPA_Admin::init();
         add_action( 'admin_init', [ __CLASS__, 'admin_init' ] );
         add_action( 'template_redirect', [ __CLASS__, 'frontend_init' ] );
     }
