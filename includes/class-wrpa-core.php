@@ -110,6 +110,12 @@ class WRPA_Core {
      * @return void
      */
     public static function deactivate() {
+        wp_clear_scheduled_hook( 'wrpa_cron_event' );
+
+        if ( function_exists( 'error_log' ) ) {
+            error_log( 'WRPA plugin deactivated — scheduled hooks cleared.' );
+        }
+
         do_action( 'wrpa/deactivate' );
     }
 }
