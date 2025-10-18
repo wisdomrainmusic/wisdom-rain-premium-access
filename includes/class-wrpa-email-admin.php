@@ -42,7 +42,7 @@ class WRPA_Email_Admin {
      */
     public static function init() : void {
         add_action( 'admin_menu', [ __CLASS__, 'register_email_submenus' ], 20 );
-        add_action( 'admin_menu', [ __CLASS__, 'hide_secondary_submenus' ], 99 );
+        add_action( 'admin_head', [ __CLASS__, 'hide_secondary_submenus' ] );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
     }
 
@@ -110,6 +110,11 @@ class WRPA_Email_Admin {
      * Hides secondary email pages from the submenu UI while keeping them routable.
      */
     public static function hide_secondary_submenus() : void {
+        // Ensure the admin menu has finished registering submenu hooks before removing them.
+        if ( ! did_action( 'admin_menu' ) ) {
+            return;
+        }
+
         $pages = [
             'wrpa-email-edit',
             'wrpa-email-preview',
