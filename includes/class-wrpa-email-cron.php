@@ -422,19 +422,17 @@ class WRPA_Email_Cron {
             'failures' => [],
         ];
 
-        foreach ( $user_ids as $user_id ) {
-            $user_id = absint( $user_id );
+        $normalized = array_filter( array_map( 'absint', $user_ids ) );
 
-            if ( ! $user_id ) {
-                continue;
-            }
+        foreach ( array_chunk( $normalized, self::BATCH_LIMIT ) as $chunk ) {
+            foreach ( $chunk as $user_id ) {
+                $sent = WRPA_Email::send_email( $user_id, $template, $data );
 
-            $sent = WRPA_Email::send_email( $user_id, $template, $data );
-
-            if ( $sent ) {
-                $summary['sent']++;
-            } else {
-                $summary['failures'][] = $user_id;
+                if ( $sent ) {
+                    $summary['sent']++;
+                } else {
+                    $summary['failures'][] = $user_id;
+                }
             }
         }
 

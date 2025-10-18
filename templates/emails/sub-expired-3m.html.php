@@ -13,22 +13,35 @@
           <tr>
             <td>
               <!-- Email Content Starts -->
-              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'>We've Added So Much Since You Left</h2>
-              <p style='margin:0 0 10px 0;font-size:16px;'>Hi {user_first_name},</p>
-              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>It's been three months since your {plan_name} subscription ended, and we've been busy launching new courses, live labs, and community circles. We'd love for you to experience what's new.</p>
-              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Return today to access the full learning library, replay every event, and receive refreshed recommendations tailored to your goals.</p>
-              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>To make your comeback easier, here's a special offer just for you: {special_offer_text}. Have questions? Email <a href='mailto:{support_email}' style='color:#d50000;text-decoration:none;'>{support_email}</a>.</p>
+              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'><?php echo esc_html__( "We've Added So Much Since You Left", 'wrpa' ); ?></h2>
+              <p style='margin:0 0 10px 0;font-size:16px;'><?php echo esc_html__( 'Hi {user_first_name},', 'wrpa' ); ?></p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'><?php echo esc_html__( "It's been three months since your {plan_name} subscription ended, and we've been busy launching new courses, live labs, and community circles. We'd love for you to experience what's new.", 'wrpa' ); ?></p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'><?php echo esc_html__( 'Return today to access the full learning library, replay every event, and receive refreshed recommendations tailored to your goals.', 'wrpa' ); ?></p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>
+                <?php
+                $support_link = '<a href="mailto:{support_email}" style="color:#d50000;text-decoration:none;">{support_email}</a>';
+                echo wp_kses(
+                    sprintf(
+                        /* translators: 1: special offer text, 2: support email */
+                        __( "To make your comeback easier, here's a special offer just for you: %1$s. Have questions? Email %2$s.", 'wrpa' ),
+                        '{special_offer_text}',
+                        $support_link
+                    ),
+                    [ 'a' => [ 'href' => [], 'style' => [] ] ]
+                );
+                ?>
+              </p>
               <p style='margin:26px 0;'>
                 <a href='{subscribe_url}' style='display:inline-block;padding:12px 24px;text-decoration:none;border-radius:6px;
                    background-color:#d50000;color:#ffffff;font-weight:bold;'>
-                  Rejoin Now
+                  <?php echo esc_html__( 'Rejoin Now', 'wrpa' ); ?>
                 </a>
               </p>
-              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'>Warm regards,<br><strong>Wisdom Rain</strong></p>
+              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'><?php echo esc_html__( 'Warm regards,', 'wrpa' ); ?><br><strong><?php echo esc_html__( 'Wisdom Rain', 'wrpa' ); ?></strong></p>
               <hr style='border:0;border-top:1px solid #ddd;margin:30px 0;'>
-              <small style='font-size:12px;color:#666;'>You are receiving this email from {site_name}. 
-                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>My Account</a> · 
-                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'>Unsubscribe</a>
+              <small style='font-size:12px;color:#666;'><?php echo esc_html__( 'You are receiving this email from {site_name}.', 'wrpa' ); ?>
+                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'><?php echo esc_html__( 'My Account', 'wrpa' ); ?></a> ·
+                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'><?php echo esc_html__( 'Unsubscribe', 'wrpa' ); ?></a>
               </small>
               <!-- Email Content Ends -->
             </td>

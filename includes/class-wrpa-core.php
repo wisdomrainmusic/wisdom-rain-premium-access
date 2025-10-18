@@ -29,6 +29,7 @@ class WRPA_Core {
         self::load_dependencies();
         \WRPA\WRPA_Access::init();
         \WRPA\WRPA_Email::init();
+        \WRPA\WRPA_Email_Verify::init();
         \WRPA\WRPA_Email_Admin::init();
         \WRPA\WRPA_Email_Cron::init();
         \WRPA\WRPA_Cron::init();
@@ -68,6 +69,7 @@ class WRPA_Core {
         require_once WRPA_PATH . 'includes/class-wrpa-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-log.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-email-verify.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-cron.php';
         require_once WRPA_PATH . 'includes/class-wrpa-cron.php';

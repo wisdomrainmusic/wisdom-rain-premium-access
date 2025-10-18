@@ -13,9 +13,6 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class WRPA_Email {
 
-    const META_VERIFIED = '_wrpa_email_verified';
-    const META_TOKEN    = '_wrpa_email_token';
-
     /**
      * Bootstraps filters and actions for email handling.
      */
@@ -27,8 +24,6 @@ class WRPA_Email {
         add_filter( 'wp_mail_from', fn() => apply_filters( 'wrpa_mail_from', 'no-reply@wisdomrainbookmusic.com' ) );
         add_filter( 'wp_mail_from_name', fn() => apply_filters( 'wrpa_mail_from_name', 'Wisdom Rain' ) );
 
-        // Account verification handler.
-        add_action( 'init', [ __CLASS__, 'maybe_verify_account' ] );
     }
 
     /**
@@ -259,11 +254,13 @@ class WRPA_Email {
             'site_url'  => home_url( '/' ),
         ];
 
+        $user_id_for_url = isset( $vars['user_id'] ) ? absint( $vars['user_id'] ) : 0;
+
         $url_defaults = [
             'subscribe_url'           => home_url( '/subscribe/' ),
             'dashboard_url'           => home_url( '/dashboard/' ),
             'manage_subscription_url' => home_url( '/account/subscriptions/' ),
-            'verify_email_url'        => home_url( '/verify-email/' ),
+            'verify_email_url'        => $user_id_for_url ? WRPA_Email_Verify::get_verify_url( $user_id_for_url ) : home_url( '/verify-email/' ),
         ];
 
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
@@ -342,7 +339,7 @@ class WRPA_Email {
             'subscribe_url'           => home_url( '/subscribe/' ),
             'dashboard_url'           => home_url( '/dashboard/' ),
             'manage_subscription_url' => home_url( '/account/subscriptions/' ),
-            'verify_email_url'        => home_url( '/verify-email/' ),
+            'verify_email_url'        => WRPA_Email_Verify::get_verify_url( $user_id ),
         ];
 
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
@@ -378,7 +375,7 @@ class WRPA_Email {
             return false;
         }
 
-        $verified_flag = get_user_meta( $user_id, self::META_VERIFIED, true );
+        $verified_flag = get_user_meta( $user_id, WRPA_Email_Verify::META_FLAG, true );
 
         if ( $verified_flag ) {
             self::log(
@@ -388,17 +385,14 @@ class WRPA_Email {
             return false;
         }
 
-        if ( ! function_exists( 'wp_generate_password' ) ) {
-            self::log( 'WRPA email verification failed — password generator unavailable.', [ 'user_id' => $user_id ] );
+        $token = WRPA_Email_Verify::generate_token( $user_id );
+
+        if ( '' === $token ) {
+            self::log( 'WRPA email verification failed — token could not be generated.', [ 'user_id' => $user_id ] );
             return false;
         }
 
-        $token = wp_generate_password( 32, false, false );
-
-        update_user_meta( $user_id, self::META_TOKEN, $token );
-        update_user_meta( $user_id, self::META_VERIFIED, '' );
-
-        $verify_url = add_query_arg( 'wrpa_verify', $token, home_url( '/' ) );
+        $verify_url = WRPA_Email_Verify::get_verify_url( $user_id );
 
         self::log(
             'WRPA email verification generated.',
@@ -412,7 +406,7 @@ class WRPA_Email {
             $user_id,
             'email-verify',
             [
-                'verify_url' => $verify_url,
+                'verify_email_url' => $verify_url,
             ]
         );
 
@@ -450,52 +444,6 @@ class WRPA_Email {
         );
 
         return false;
-    }
-
-    /**
-     * Attempts to validate a verification request from the current request.
-     *
-     * @return void
-     */
-    public static function maybe_verify_account() {
-        if ( empty( $_GET['wrpa_verify'] ) ) {
-            return;
-        }
-
-        $raw_token = wp_unslash( $_GET['wrpa_verify'] );
-        $token     = sanitize_text_field( $raw_token );
-
-        if ( '' === $token ) {
-            self::log( 'WRPA email verification rejected — token missing from request.' );
-            return;
-        }
-
-        $users = get_users(
-            [
-                'meta_key'   => self::META_TOKEN,
-                'meta_value' => $token,
-                'fields'     => 'ids',
-                'number'     => 1,
-            ]
-        );
-
-        if ( empty( $users ) ) {
-            self::log(
-                'WRPA email verification rejected — no matching token found.',
-                [ 'token_hash' => md5( $token ) ]
-            );
-            return;
-        }
-
-        $user_id = (int) $users[0];
-
-        update_user_meta( $user_id, self::META_VERIFIED, '1' );
-        delete_user_meta( $user_id, self::META_TOKEN );
-
-        self::log(
-            'WRPA email verification confirmed.',
-            [ 'user_id' => $user_id ]
-        );
     }
 
     /**
