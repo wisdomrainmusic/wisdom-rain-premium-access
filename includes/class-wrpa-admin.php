@@ -55,20 +55,67 @@ class WRPA_Admin {
         );
     }
 
+    /**
+     * Outputs the navigation tabs for the WRPA admin sub pages.
+     *
+     * @param string $active_slug The slug of the currently active tab.
+     *
+     * @return void
+     */
+    protected static function render_nav_tabs( $active_slug ) {
+        $tabs = [
+            'wrpa-members' => __( 'Members', 'wrpa' ),
+            'wrpa-emails'  => __( 'Email Templates', 'wrpa' ),
+            'wrpa-settings'=> __( 'Settings', 'wrpa' ),
+        ];
+
+        echo '<h2 class="nav-tab-wrapper">';
+
+        foreach ( $tabs as $slug => $label ) {
+            $url   = esc_url( admin_url( 'admin.php?page=' . $slug ) );
+            $class = 'nav-tab';
+
+            if ( $slug === $active_slug ) {
+                $class .= ' nav-tab-active';
+            }
+
+            printf(
+                '<a href="%1$s" class="%2$s">%3$s</a>',
+                $url,
+                esc_attr( $class ),
+                esc_html( $label )
+            );
+        }
+
+        echo '</h2>';
+    }
+
     // Sayfa içerikleri
     public static function dashboard_page() {
         echo '<div class="wrap"><h1>WRPA Dashboard</h1><p>Yönetim paneline hoş geldiniz.</p></div>';
     }
 
     public static function members_page() {
-        echo '<div class="wrap"><h1>Members</h1><p>Üyeler sekmesi hazırlanıyor.</p></div>';
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__( 'Members', 'wrpa' ) . '</h1>';
+        self::render_nav_tabs( 'wrpa-members' );
+        echo '<p>' . esc_html__( 'Üyeler sekmesi hazırlanıyor.', 'wrpa' ) . '</p>';
+        echo '</div>';
     }
 
     public static function emails_page() {
-        echo '<div class="wrap"><h1>Email Templates</h1><p>E-posta şablonları sekmesi hazırlanıyor.</p></div>';
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__( 'Email Templates', 'wrpa' ) . '</h1>';
+        self::render_nav_tabs( 'wrpa-emails' );
+        echo '<p>' . esc_html__( 'E-posta şablonları sekmesi hazırlanıyor.', 'wrpa' ) . '</p>';
+        echo '</div>';
     }
 
     public static function settings_page() {
-        echo '<div class="wrap"><h1>Settings</h1><p>Ayarlar sekmesi hazırlanıyor.</p></div>';
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__( 'Settings', 'wrpa' ) . '</h1>';
+        self::render_nav_tabs( 'wrpa-settings' );
+        echo '<p>' . esc_html__( 'Ayarlar sekmesi hazırlanıyor.', 'wrpa' ) . '</p>';
+        echo '</div>';
     }
 }
