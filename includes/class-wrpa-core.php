@@ -68,10 +68,10 @@ class WRPA_Core {
      *
      * @return void
      */
-    protected static function init_hooks() {
-        add_action( 'plugins_loaded', array( __NAMESPACE__ . '\\WRPA_Admin', 'init' ) );
-        add_action( 'admin_init', array( __CLASS__, 'admin_init' ) );
-        add_action( 'template_redirect', array( __CLASS__, 'frontend_init' ) );
+    private static function init_hooks() {
+        add_action( 'plugins_loaded', [ 'WRPA\\WRPA_Admin', 'init' ] );
+        add_action( 'admin_init', [ __CLASS__, 'admin_init' ] );
+        add_action( 'template_redirect', [ __CLASS__, 'frontend_init' ] );
     }
 
     /**
