@@ -47,7 +47,7 @@ class WRPA_Access {
      * @return void
      */
     public static function register_post_meta() {
-        $post_types = apply_filters( 'wrpa/restriction_post_types', [ 'post', 'page' ] );
+        $post_types = self::get_restriction_post_types();
 
         foreach ( (array) $post_types as $post_type ) {
             register_post_meta(
@@ -135,7 +135,7 @@ class WRPA_Access {
      * @return void
      */
     public static function register_meta_box() {
-        $post_types = apply_filters( 'wrpa/restriction_post_types', [ 'post', 'page' ] );
+        $post_types = self::get_restriction_post_types();
 
         foreach ( (array) $post_types as $post_type ) {
             add_meta_box(
@@ -217,7 +217,7 @@ class WRPA_Access {
             return;
         }
 
-        $post_types = (array) apply_filters( 'wrpa/restriction_post_types', [ 'post', 'page' ] );
+        $post_types = self::get_restriction_post_types();
         if ( ! in_array( $post->post_type, $post_types, true ) ) {
             return;
         }
@@ -246,6 +246,78 @@ class WRPA_Access {
         }
 
         update_post_meta( $post_id, $meta_key, $value );
+    }
+
+    /**
+     * Retrieves the list of post types that support WRPA restriction settings.
+     *
+     * @return array
+     */
+    protected static function get_restriction_post_types() {
+        $defaults = [
+            'post',
+            'page',
+            'library',
+            'music',
+            'meditation',
+            'sleep_story',
+            'magazine',
+            'children_story', // Optional premium content; can be toggled in future phases.
+        ];
+
+        $post_types = apply_filters( 'wrpa/restriction_post_types', $defaults );
+
+        return self::normalize_post_type_list( $post_types );
+    }
+
+    /**
+     * Returns the post types that should trigger the premium access checks.
+     *
+     * @return array
+     */
+    protected static function get_protected_post_types() {
+        $post_types = apply_filters( 'wrpa/protected_post_types', self::get_restriction_post_types() );
+
+        return self::normalize_post_type_list( $post_types );
+    }
+
+    /**
+     * Normalizes a list of post types.
+     *
+     * @param array $post_types Raw post type values.
+     * @return array
+     */
+    protected static function normalize_post_type_list( $post_types ) {
+        $post_types = array_filter( array_map( 'sanitize_key', (array) $post_types ) );
+
+        return array_values( array_unique( $post_types ) );
+    }
+
+    /**
+     * Determines whether the current request targets premium protected content.
+     *
+     * @param array $post_types Post types requiring premium access.
+     * @return bool
+     */
+    protected static function is_protected_request( array $post_types ) {
+        if ( empty( $post_types ) ) {
+            return false;
+        }
+
+        if ( is_singular( $post_types ) ) {
+            return true;
+        }
+
+        if ( is_post_type_archive( $post_types ) ) {
+            return true;
+        }
+
+        $queried_object = get_queried_object();
+        if ( $queried_object instanceof \WP_Post && in_array( $queried_object->post_type, $post_types, true ) ) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
@@ -293,13 +365,20 @@ class WRPA_Access {
             return;
         }
 
-        if ( ! is_user_logged_in() || self::subscription_has_expired( get_current_user_id() ) ) {
-            $destination  = home_url( '/subscribe/' );
-            $current_path = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH ) : '';
+        $protected_post_types = self::get_protected_post_types();
+        $is_protected_request = self::is_protected_request( $protected_post_types );
 
-            if ( untrailingslashit( $current_path ) !== '/subscribe' ) {
-                wp_safe_redirect( $destination );
-                exit;
+        if ( $is_protected_request ) {
+            $current_user_id = get_current_user_id();
+
+            if ( ! is_user_logged_in() || self::subscription_has_expired( $current_user_id ) ) {
+                $destination  = home_url( '/subscribe/' );
+                $current_path = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH ) : '';
+
+                if ( untrailingslashit( $current_path ) !== '/subscribe' ) {
+                    wp_safe_redirect( $destination );
+                    exit;
+                }
             }
         }
 
