@@ -55,9 +55,10 @@ class WRPA_Admin {
      */
     public static function render_nav_tabs( $active_slug ) {
         $tabs = [
-            'wrpa-members' => __( 'Members', 'wrpa' ),
-            'wrpa-emails'  => __( 'Email Templates', 'wrpa' ),
-            'wrpa-settings'=> __( 'Settings', 'wrpa' ),
+            'wrpa-members'         => __( 'Members', 'wrpa' ),
+            'wrpa-emails'          => __( 'Email Templates', 'wrpa' ),
+            'wrpa-email-settings'  => __( 'Email Settings', 'wrpa' ),
+            'wrpa-settings'        => __( 'Settings', 'wrpa' ),
         ];
 
         echo '<h2 class="nav-tab-wrapper">';
@@ -154,14 +155,6 @@ class WRPA_Admin {
 
         echo '</tbody>';
         echo '</table>';
-        echo '</div>';
-    }
-
-    public static function emails_page() {
-        echo '<div class="wrap">';
-        echo '<h1>' . esc_html__( 'Email Templates', 'wrpa' ) . '</h1>';
-        self::render_nav_tabs( 'wrpa-emails' );
-        echo '<p>' . esc_html__( 'E-posta şablonları sekmesi hazırlanıyor.', 'wrpa' ) . '</p>';
         echo '</div>';
     }
 

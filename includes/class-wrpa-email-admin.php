@@ -38,7 +38,7 @@ class WRPA_Email_Admin {
     }
 
     /**
-     * Registers the "Email Templates" submenu item under the WRPA dashboard.
+     * Registers the "Email" admin submenus under the WRPA dashboard.
      */
     public static function register_submenu() : void {
         add_submenu_page(
@@ -48,6 +48,15 @@ class WRPA_Email_Admin {
             'manage_options',
             'wrpa-emails',
             [ __CLASS__, 'render_page' ]
+        );
+
+        add_submenu_page(
+            'wrpa-dashboard',
+            __( 'Email Settings', 'wrpa' ),
+            __( 'Email Settings', 'wrpa' ),
+            'manage_options',
+            'wrpa-email-settings',
+            [ __CLASS__, 'render_settings_page' ]
         );
     }
 
@@ -90,6 +99,69 @@ class WRPA_Email_Admin {
     }
 
     /**
+     * Renders the Email Settings screen with diagnostic tools.
+     */
+    public static function render_settings_page() : void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( __( 'You do not have permission to access this page.', 'wrpa' ) );
+        }
+
+        self::maybe_handle_settings_actions();
+
+        $fluent_smtp_available = self::is_fluent_smtp_available();
+        $schema_stub           = self::get_email_log_schema();
+
+        echo '<div class="wrap wrpa-email-settings">';
+        echo '<h1>' . esc_html__( 'Email Settings', 'wrpa' ) . '</h1>';
+
+        if ( class_exists( '\\WRPA\\WRPA_Admin' ) ) {
+            WRPA_Admin::render_nav_tabs( 'wrpa-email-settings' );
+        }
+
+        self::render_notices();
+
+        echo '<h2>' . esc_html__( 'SMTP Connection Test', 'wrpa' ) . '</h2>';
+
+        $status_label = $fluent_smtp_available
+            ? esc_html__( 'FluentSMTP detected. Outbound email will use the configured connection.', 'wrpa' )
+            : esc_html__( 'FluentSMTP not detected. Activate the FluentSMTP plugin to enable advanced delivery logs.', 'wrpa' );
+
+        echo '<p>' . $status_label . '</p>';
+
+        echo '<form method="post" class="wrpa-smtp-check" style="max-width:420px;">';
+        wp_nonce_field( 'wrpa_check_smtp' );
+        echo '<input type="hidden" name="wrpa_check_smtp" value="1" />';
+        echo '<p>' . esc_html__( 'Re-run the detector after installing or activating FluentSMTP.', 'wrpa' ) . '</p>';
+        echo '<p><button type="submit" class="button">' . esc_html__( 'Check Connection', 'wrpa' ) . '</button></p>';
+        echo '</form>';
+
+        echo '<hr />';
+
+        echo '<h2>' . esc_html__( 'Blast Now', 'wrpa' ) . '</h2>';
+        echo '<p>' . esc_html__( 'Send a one-off HTML message through the configured mailer to validate deliverability.', 'wrpa' ) . '</p>';
+
+        echo '<form method="post" class="wrpa-blast-now" style="max-width:600px;">';
+        wp_nonce_field( 'wrpa_blast_now' );
+        echo '<input type="hidden" name="wrpa_blast_now" value="1" />';
+        echo '<p><label for="wrpa-blast-email">' . esc_html__( 'Recipient Email', 'wrpa' ) . '</label><br />';
+        echo '<input type="email" id="wrpa-blast-email" name="wrpa_blast_email" class="regular-text" required /></p>';
+        echo '<p><label for="wrpa-blast-subject">' . esc_html__( 'Subject', 'wrpa' ) . '</label><br />';
+        echo '<input type="text" id="wrpa-blast-subject" name="wrpa_blast_subject" class="regular-text" required /></p>';
+        echo '<p><label for="wrpa-blast-message">' . esc_html__( 'Message (HTML allowed)', 'wrpa' ) . '</label><br />';
+        echo '<textarea id="wrpa-blast-message" name="wrpa_blast_message" class="large-text code" rows="6" required></textarea></p>';
+        echo '<p><button type="submit" class="button button-primary">' . esc_html__( 'Blast Now', 'wrpa' ) . '</button></p>';
+        echo '</form>';
+
+        echo '<hr />';
+
+        echo '<h2>' . esc_html__( 'wrpa_email_log Schema (Preview)', 'wrpa' ) . '</h2>';
+        echo '<p>' . esc_html__( 'The following SQL stub documents the planned logging table. It is not executed automatically yet.', 'wrpa' ) . '</p>';
+        echo '<textarea readonly class="large-text code" rows="10" style="min-height:160px;">' . esc_textarea( $schema_stub ) . '</textarea>';
+
+        echo '</div>';
+    }
+
+    /**
      * Handles preview or test send requests coming from the admin screen.
      */
     protected static function maybe_handle_actions() : void {
@@ -103,6 +175,23 @@ class WRPA_Email_Admin {
 
         if ( isset( $_POST['wrpa_send_test_email'] ) ) {
             self::handle_test_send_action();
+        }
+    }
+
+    /**
+     * Handles POST requests made on the Email Settings screen.
+     */
+    protected static function maybe_handle_settings_actions() : void {
+        if ( empty( $_POST ) ) {
+            return;
+        }
+
+        if ( isset( $_POST['wrpa_check_smtp'] ) ) {
+            self::handle_smtp_check_action();
+        }
+
+        if ( isset( $_POST['wrpa_blast_now'] ) ) {
+            self::handle_blast_now_action();
         }
     }
 
@@ -185,6 +274,66 @@ class WRPA_Email_Admin {
             'error',
             __( 'The test email could not be sent. Check the user account and mail configuration.', 'wrpa' )
         );
+    }
+
+    /**
+     * Runs the FluentSMTP detector and records an admin notice with the result.
+     */
+    protected static function handle_smtp_check_action() : void {
+        check_admin_referer( 'wrpa_check_smtp' );
+
+        if ( self::is_fluent_smtp_available() ) {
+            self::add_message(
+                'success',
+                __( 'FluentSMTP is active. Email delivery should use the configured connection.', 'wrpa' )
+            );
+            return;
+        }
+
+        self::add_message(
+            'error',
+            __( 'FluentSMTP could not be detected. Install or activate the FluentSMTP plugin to enable SMTP logging.', 'wrpa' )
+        );
+    }
+
+    /**
+     * Sends a manual email using the current mail configuration.
+     */
+    protected static function handle_blast_now_action() : void {
+        check_admin_referer( 'wrpa_blast_now' );
+
+        $recipient = isset( $_POST['wrpa_blast_email'] ) ? sanitize_email( wp_unslash( $_POST['wrpa_blast_email'] ) ) : '';
+        $subject   = isset( $_POST['wrpa_blast_subject'] ) ? sanitize_text_field( wp_unslash( $_POST['wrpa_blast_subject'] ) ) : '';
+        $message   = isset( $_POST['wrpa_blast_message'] ) ? wp_kses_post( wp_unslash( $_POST['wrpa_blast_message'] ) ) : '';
+
+        if ( ! $recipient || ! is_email( $recipient ) ) {
+            self::add_message( 'error', __( 'Enter a valid recipient email address before sending.', 'wrpa' ) );
+            return;
+        }
+
+        if ( '' === $subject ) {
+            self::add_message( 'error', __( 'Enter a subject line for the blast email.', 'wrpa' ) );
+            return;
+        }
+
+        if ( '' === trim( wp_strip_all_tags( $message ) ) ) {
+            self::add_message( 'error', __( 'Provide a message body before sending.', 'wrpa' ) );
+            return;
+        }
+
+        $sent = wp_mail(
+            $recipient,
+            $subject,
+            wpautop( $message ),
+            [ 'Content-Type: text/html; charset=UTF-8' ]
+        );
+
+        if ( $sent ) {
+            self::add_message( 'success', __( 'Blast email dispatched successfully.', 'wrpa' ) );
+            return;
+        }
+
+        self::add_message( 'error', __( 'The blast email could not be sent. Check your SMTP configuration.', 'wrpa' ) );
     }
 
     /**
@@ -365,6 +514,51 @@ class WRPA_Email_Admin {
         }
 
         return null;
+    }
+
+    /**
+     * Determines whether the FluentSMTP plugin appears to be available.
+     */
+    protected static function is_fluent_smtp_available() : bool {
+        return defined( 'FLUENTMAIL' )
+            || class_exists( '\\FluentMail\\Includes\\Core\\Application' )
+            || class_exists( '\\FluentMail\\App\\Services\\Mailer\\FluentMailer' )
+            || function_exists( 'fluentsmtp' );
+    }
+
+    /**
+     * Returns the SQL stub for the upcoming wrpa_email_log table.
+     */
+    protected static function get_email_log_schema() : string {
+        global $wpdb;
+
+        $table_name = 'wp_wrpa_email_log';
+
+        if ( isset( $wpdb ) && is_object( $wpdb ) && isset( $wpdb->prefix ) ) {
+            $table_name = $wpdb->prefix . 'wrpa_email_log';
+        }
+
+        $collate = 'DEFAULT CHARSET=utf8mb4';
+
+        if ( isset( $wpdb ) && is_object( $wpdb ) && method_exists( $wpdb, 'get_charset_collate' ) ) {
+            $collate = $wpdb->get_charset_collate();
+        }
+
+        $schema  = "CREATE TABLE {$table_name} (\n";
+        $schema .= "  id bigint(20) unsigned NOT NULL AUTO_INCREMENT,\n";
+        $schema .= "  user_id bigint(20) unsigned NULL,\n";
+        $schema .= "  email varchar(190) NOT NULL,\n";
+        $schema .= "  template varchar(100) NOT NULL,\n";
+        $schema .= "  subject varchar(255) NOT NULL,\n";
+        $schema .= "  sent_at datetime NOT NULL,\n";
+        $schema .= "  status varchar(50) NOT NULL DEFAULT 'pending',\n";
+        $schema .= "  error text NULL,\n";
+        $schema .= "  PRIMARY KEY  (id),\n";
+        $schema .= "  KEY user_id (user_id),\n";
+        $schema .= "  KEY sent_at (sent_at)\n";
+        $schema .= ") {$collate};";
+
+        return $schema;
     }
 
     /**
