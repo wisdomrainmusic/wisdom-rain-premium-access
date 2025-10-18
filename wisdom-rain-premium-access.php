@@ -16,17 +16,25 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // === Sabitler === //
-define( 'WRPA_VERSION', '2.0.0' );
-define( 'WRPA_PATH', plugin_dir_path( __FILE__ ) );
-define( 'WRPA_URL', plugin_dir_url( __FILE__ ) );
+if ( ! defined( 'WRPA_VERSION' ) ) {
+    define( 'WRPA_VERSION', '2.0.0' );
+}
+
+if ( ! defined( 'WRPA_PATH' ) ) {
+    define( 'WRPA_PATH', plugin_dir_path( __FILE__ ) );
+}
+
+if ( ! defined( 'WRPA_URL' ) ) {
+    define( 'WRPA_URL', plugin_dir_url( __FILE__ ) );
+}
+
+if ( ! defined( 'WRPA_META_EXPIRY' ) ) {
+    define( 'WRPA_META_EXPIRY', DAY_IN_SECONDS * 30 );
+}
 
 // === Dosyaları Dahil Et (ileride eklenecek modüller) === //
 $includes = array(
-    'includes/class-wrpa-core.php',
-    'includes/class-wrpa-admin.php',
-    'includes/class-wrpa-access.php',
-    'includes/class-wrpa-email.php',
-    'includes/class-wrpa-cron.php'
+    'includes/class-wrpa-core.php'
 );
 
 foreach ( $includes as $file ) {
@@ -38,5 +46,8 @@ foreach ( $includes as $file ) {
 
 // === Ana Başlatma === //
 if ( class_exists( 'WRPA\\WRPA_Core' ) ) {
+    register_activation_hook( __FILE__, array( 'WRPA\\WRPA_Core', 'activate' ) );
+    register_deactivation_hook( __FILE__, array( 'WRPA\\WRPA_Core', 'deactivate' ) );
+
     add_action( 'plugins_loaded', array( 'WRPA\\WRPA_Core', 'init' ) );
 }
