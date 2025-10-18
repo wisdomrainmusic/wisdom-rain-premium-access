@@ -99,7 +99,41 @@ class WRPA_Admin {
         echo '<div class="wrap">';
         echo '<h1>' . esc_html__( 'Members', 'wrpa' ) . '</h1>';
         self::render_nav_tabs( 'wrpa-members' );
-        echo '<p>' . esc_html__( 'Üyeler sekmesi hazırlanıyor.', 'wrpa' ) . '</p>';
+        echo '<p>' . esc_html__( 'Aşağıdaki tablo üyelerinizin temel bilgilerini görüntüler.', 'wrpa' ) . '</p>';
+
+        echo '<table class="wp-list-table widefat striped">';
+        echo '<thead>';
+        echo '<tr>';
+        echo '<th scope="col">' . esc_html__( 'Name', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'E-Mail', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Phone', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Country', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Subscription Date', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Plan', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Start Date', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Expiry/Days Left', 'wrpa' ) . '</th>';
+        echo '<th scope="col">' . esc_html__( 'Status', 'wrpa' ) . '</th>';
+        echo '</tr>';
+        echo '</thead>';
+
+        echo '<tbody>';
+
+        $placeholder_rows = [
+            [ 'Jane Doe', 'jane@example.com', '+1 555 0100', 'USA', '2023-11-01', 'Premium', '2023-11-01', '2024-11-01 / 180', __( 'Active', 'wrpa' ) ],
+            [ 'John Smith', 'john@example.com', '+44 20 7946 0958', 'UK', '2023-09-15', 'Standard', '2023-09-15', '2024-09-15 / 120', __( 'Expiring Soon', 'wrpa' ) ],
+            [ 'Ayşe Yılmaz', 'ayse@example.com', '+90 312 555 0101', 'Türkiye', '2023-12-20', 'Trial', '2023-12-20', '2024-01-20 / 30', __( 'Trial', 'wrpa' ) ],
+        ];
+
+        foreach ( $placeholder_rows as $row ) {
+            echo '<tr>';
+            foreach ( $row as $column ) {
+                echo '<td>' . esc_html( $column ) . '</td>';
+            }
+            echo '</tr>';
+        }
+
+        echo '</tbody>';
+        echo '</table>';
         echo '</div>';
     }
 
