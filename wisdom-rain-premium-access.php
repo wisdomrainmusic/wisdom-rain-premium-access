@@ -37,6 +37,6 @@ foreach ( $includes as $file ) {
 }
 
 // === Ana Başlatma === //
-if ( class_exists( 'WRPA_Core' ) ) {
-    add_action( 'plugins_loaded', array( 'WRPA_Core', 'init' ) );
+if ( class_exists( 'WRPA\\WRPA_Core' ) ) {
+    add_action( 'plugins_loaded', array( 'WRPA\\WRPA_Core', 'init' ) );
 }
