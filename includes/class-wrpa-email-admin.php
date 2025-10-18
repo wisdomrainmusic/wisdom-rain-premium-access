@@ -31,9 +31,17 @@ class WRPA_Email_Admin {
     protected static $preview_html = '';
 
     /**
+     * Tracks whether the hidden submenu routes have already been registered.
+     *
+     * @var bool
+     */
+    protected static $hidden_submenus_registered = false;
+
+    /**
      * Bootstraps admin hooks for managing email templates.
      */
     public static function init() : void {
+        add_action( 'admin_menu', [ __CLASS__, 'register_hidden_submenus' ], 50 );
         add_action( 'admin_menu', [ __CLASS__, 'hide_secondary_submenus' ], 99 );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
     }
@@ -42,6 +50,12 @@ class WRPA_Email_Admin {
      * Registers hidden Email admin sub pages under the WRPA dashboard.
      */
     public static function register_hidden_submenus() : void {
+        if ( self::$hidden_submenus_registered ) {
+            return;
+        }
+
+        self::$hidden_submenus_registered = true;
+
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Email ▸ Edit Template', 'wrpa' ),
