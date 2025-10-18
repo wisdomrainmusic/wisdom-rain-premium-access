@@ -1,40 +1,42 @@
-<!DOCTYPE html>
-<html lang="tr">
+<!doctype html>
+<html>
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{site_name}</title>
+  <meta charset='UTF-8'>
+  <title>{site_name}</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
 </head>
-<body style="margin:0; padding:0; background-color:#0f172a;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;">
-        <tr>
-            <td align="center" style="padding:24px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden;">
-                    <tr>
-                        <td style="padding:32px 40px; background:url('{fireworks_image_url}') no-repeat center top / cover;">
-                            <h1 style="margin:0 0 16px; font-size:28px; color:#facc15; text-shadow:0 1px 2px rgba(17,24,39,0.4);">Yeni yılı birlikte karşılayalım</h1>
-                            <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#f1f5f9;">
-                                Merhaba {user_first_name}, {site_name} topluluğu olarak 31 Aralık akşamı düzenlediğimiz yeni yıl buluşmasına davetlisiniz. Niyet ritüelleri, canlı müzik ve özel hediyeler sizi bekliyor.
-                            </p>
-                            <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#e2e8f0;">
-                                Katılım için sınırlı kontenjanımız var. Hemen kaydolun ve yeni yıl hedeflerinizi birlikte planlayalım.
-                            </p>
-                            <p style="text-align:center; margin:0 0 32px;">
-                                <a href="{campaign_event_url}" style="display:inline-block; padding:14px 32px; background:#0ea5e9; color:#0f172a; font-size:16px; font-weight:700; border-radius:8px; text-decoration:none;">Katılımı Onayla</a>
-                            </p>
-                            <p style="margin:0; font-size:14px; line-height:1.6; color:#cbd5f5;">
-                                Etkinliği arkadaşlarınıza da davet etmek için {share_link} bağlantısını paylaşabilirsiniz. Sorularınızı {support_email} üzerinden bekliyoruz.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background:#0f172a; padding:20px 40px; text-align:center;">
-                            <p style="margin:0; font-size:13px; color:#cbd5f5;">© {site_name} · <a href="{dashboard_url}" style="color:#38bdf8; text-decoration:none;">Kontrol Paneli</a> · <a href="{unsubscribe_url}" style="color:#38bdf8; text-decoration:none;">Bildirimleri Kapat</a></p>
-                        </td>
-                    </tr>
-                </table>
+<body style='margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#ffffff;color:#111111;'>
+  <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center'>
+        <table width='620' cellpadding='24' cellspacing='0' style='max-width:620px;border:1px solid #eee;'>
+          <tr>
+            <td>
+              <!-- Email Content Starts -->
+              <img src='{fireworks_image_url}' alt='Fireworks lighting the night sky' style='width:100%;max-width:572px;height:auto;border-radius:6px;margin:0 0 18px 0;'>
+              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'>Celebrate the New Year with Us</h2>
+              <p style='margin:0 0 10px 0;font-size:16px;'>Hi {user_first_name},</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>You're invited to the {site_name} community gathering on December 31. Join us for intention-setting rituals, live music, and surprise gifts as we welcome a bright new year together.</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Seats are limited, so please confirm your participation soon and let us know your goals for 2025. We'll have guided journaling moments and a group toast at midnight.</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Want to bring a friend? Share this link: <a href='{share_link}' style='color:#d50000;text-decoration:none;'>{share_link}</a>. If you have any questions, reach out at <a href='mailto:{support_email}' style='color:#d50000;text-decoration:none;'>{support_email}</a>.</p>
+              <p style='margin:26px 0;'>
+                <a href='{campaign_event_url}' style='display:inline-block;padding:12px 24px;text-decoration:none;border-radius:6px;
+                   background-color:#d50000;color:#ffffff;font-weight:bold;'>
+                  Confirm My Spot
+                </a>
+              </p>
+              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'>Warm regards,<br><strong>Wisdom Rain</strong></p>
+              <hr style='border:0;border-top:1px solid #ddd;margin:30px 0;'>
+              <small style='font-size:12px;color:#666;'>You are receiving this email from {site_name}. 
+                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>My Account</a> · 
+                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'>Unsubscribe</a>
+              </small>
+              <!-- Email Content Ends -->
             </td>
-        </tr>
-    </table>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
