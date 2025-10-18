@@ -21,11 +21,13 @@ class WRPA_Core {
      * @return void
      */
     public static function init() {
+        if ( function_exists( 'error_log' ) ) {
+            error_log( 'WRPA Core initialized' );
+        }
+
         self::define_constants();
         self::load_dependencies();
         self::init_hooks();
-
-        error_log( 'WRPA Core initialized' );
     }
 
     /**
@@ -69,7 +71,7 @@ class WRPA_Core {
      * @return void
      */
     private static function init_hooks() {
-        add_action( 'plugins_loaded', [ 'WRPA\\WRPA_Admin', 'init' ] );
+        add_action( 'plugins_loaded', [ 'WRPA\WRPA_Admin', 'init' ] );
         add_action( 'admin_init', [ __CLASS__, 'admin_init' ] );
         add_action( 'template_redirect', [ __CLASS__, 'frontend_init' ] );
     }

@@ -45,9 +45,9 @@ foreach ( $includes as $file ) {
 }
 
 // === Ana Başlatma === //
-if ( class_exists( 'WRPA\\WRPA_Core' ) ) {
-    register_activation_hook( __FILE__, array( 'WRPA\\WRPA_Core', 'activate' ) );
-    register_deactivation_hook( __FILE__, array( 'WRPA\\WRPA_Core', 'deactivate' ) );
+if ( class_exists( 'WRPA\WRPA_Core' ) ) {
+    register_activation_hook( __FILE__, array( 'WRPA\WRPA_Core', 'activate' ) );
+    register_deactivation_hook( __FILE__, array( 'WRPA\WRPA_Core', 'deactivate' ) );
 
-    add_action( 'plugins_loaded', array( 'WRPA\\WRPA_Core', 'init' ) );
+    add_action( 'plugins_loaded', array( 'WRPA\WRPA_Core', 'init' ) );
 }
