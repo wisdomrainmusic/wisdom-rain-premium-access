@@ -72,7 +72,7 @@ class WRPA_Email_Admin {
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Email ▸ Edit Template', 'wrpa' ),
-            __( 'Email ▸ Edit Template', 'wrpa' ),
+            '',
             'manage_options',
             'wrpa-email-edit',
             [ __CLASS__, 'render_edit_page' ]
@@ -81,7 +81,7 @@ class WRPA_Email_Admin {
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Email ▸ Preview', 'wrpa' ),
-            __( 'Email ▸ Preview', 'wrpa' ),
+            '',
             'manage_options',
             'wrpa-email-preview',
             [ __CLASS__, 'render_preview_page' ]
@@ -90,7 +90,7 @@ class WRPA_Email_Admin {
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Email ▸ Test Gönder', 'wrpa' ),
-            __( 'Email ▸ Test Gönder', 'wrpa' ),
+            '',
             'manage_options',
             'wrpa-email-test',
             [ __CLASS__, 'render_test_page' ]
@@ -99,7 +99,7 @@ class WRPA_Email_Admin {
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Email ▸ Campaigns', 'wrpa' ),
-            __( 'Email ▸ Campaigns', 'wrpa' ),
+            '',
             'manage_options',
             'wrpa-email-campaigns',
             [ __CLASS__, 'render_campaign_page' ]
@@ -325,17 +325,13 @@ class WRPA_Email_Admin {
         $templates = self::get_templates();
         $slug      = isset( $_REQUEST['slug'] ) ? sanitize_key( wp_unslash( $_REQUEST['slug'] ) ) : '';
 
-        if ( isset( $_GET['wrpa_generate_preview'] ) && $slug ) {
-            $nonce = isset( $_GET['wrpa_preview_email_nonce'] ) ? sanitize_text_field( wp_unslash( $_GET['wrpa_preview_email_nonce'] ) ) : '';
-            if ( ! wp_verify_nonce( $nonce, 'wrpa_preview_email' ) ) {
-                self::add_message( 'error', __( 'Security check failed. Preview was not generated.', 'wrpa' ) );
-            } else {
-                self::$preview_html = self::generate_preview_html( $slug, self::get_dummy_template_vars() );
-                if ( '' === self::$preview_html ) {
-                    self::add_message( 'error', __( 'The selected template could not be rendered with the provided data.', 'wrpa' ) );
-                } else {
-                    self::add_message( 'success', __( 'Preview generated successfully.', 'wrpa' ) );
-                }
+        if ( $slug ) {
+            self::$preview_html = self::generate_preview_html( $slug, self::get_dummy_template_vars() );
+
+            if ( '' === self::$preview_html ) {
+                self::add_message( 'error', __( 'The selected template could not be rendered with the provided data.', 'wrpa' ) );
+            } elseif ( isset( $_REQUEST['wrpa_generate_preview'] ) ) {
+                self::add_message( 'success', __( 'Preview generated successfully.', 'wrpa' ) );
             }
         }
 
@@ -351,7 +347,6 @@ class WRPA_Email_Admin {
 
         echo '<form method="get" class="wrpa-email-preview-form">';
         echo '<input type="hidden" name="page" value="wrpa-email-preview" />';
-        wp_nonce_field( 'wrpa_preview_email', 'wrpa_preview_email_nonce' );
         echo '<p><label for="wrpa-preview-slug">' . esc_html__( 'Template', 'wrpa' ) . '</label><br />';
         echo '<select name="slug" id="wrpa-preview-slug" class="regular-text">';
         echo '<option value="">' . esc_html__( 'Select template…', 'wrpa' ) . '</option>';
