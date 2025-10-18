@@ -12,19 +12,18 @@
                 <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden;">
                     <tr>
                         <td style="padding:32px 40px;">
-                            <h1 style="margin:0 0 16px; font-size:26px; color:#111827;">E-posta adresinizi doğrulayın</h1>
+                            <h1 style="margin:0 0 16px; font-size:26px; color:#111827;">{blast_title}</h1>
                             <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#4b5563;">
-                                Merhaba {user_first_name}, Wisdom Rain Premium Access üyeliğinizi tamamlamak için e-posta adresinizi doğrulamanız gerekiyor. Bu adım hesabınızı güvence altına alır ve size özel içeriklere erişmenizi sağlar.
+                                Merhaba {user_first_name}, {blast_intro}
+                            </p>
+                            <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#4b5563;">
+                                {blast_body}
                             </p>
                             <p style="text-align:center; margin:0 0 32px;">
-                                <a href="{verify_email_url}" style="display:inline-block; padding:14px 32px; background:#2563eb; color:#ffffff; font-size:16px; font-weight:600; border-radius:8px; text-decoration:none;">E-postayı Doğrula</a>
-                            </p>
-                            <p style="margin:0 0 16px; font-size:14px; line-height:1.6; color:#6b7280;">
-                                Buton çalışmazsa aşağıdaki bağlantıyı kopyalayıp tarayıcınıza yapıştırabilirsiniz:<br />
-                                <a href="{verify_email_url}" style="color:#2563eb; text-decoration:none; word-break:break-all;">{verify_email_url}</a>
+                                <a href="{primary_cta_url}" style="display:inline-block; padding:14px 32px; background:#2563eb; color:#ffffff; font-size:16px; font-weight:600; border-radius:8px; text-decoration:none;">{primary_cta_label}</a>
                             </p>
                             <p style="margin:0; font-size:14px; line-height:1.6; color:#6b7280;">
-                                Hesap ayarlarınıza ulaşmak için <a href="{dashboard_url}" style="color:#2563eb; text-decoration:none;">kontrol panelinizi</a> ziyaret edin veya desteğe ihtiyaç duyarsanız {support_email} adresinden bize yazın.
+                                Daha fazla bilgi için {secondary_cta_text} veya {support_email} adresine ulaşın.
                             </p>
                         </td>
                     </tr>
