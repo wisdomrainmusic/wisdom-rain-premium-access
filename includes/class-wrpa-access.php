@@ -35,7 +35,7 @@ class WRPA_Access {
         add_action( 'save_post', [ __CLASS__, 'save_restriction_settings' ], 10, 2 );
         add_filter( 'the_content', [ __CLASS__, 'filter_restricted_content' ] );
         add_shortcode( self::SHORTCODE_RESTRICTED, [ __CLASS__, 'render_restricted_shortcode' ] );
-        add_action( 'template_redirect', [ __CLASS__, 'maybe_redirect_restricted_content' ], 5 );
+        add_action( 'template_redirect', [ __CLASS__, 'handle_access' ], 5 );
     }
 
     /**
@@ -278,6 +278,22 @@ class WRPA_Access {
     }
 
     /**
+     * Entry point for access enforcement during template rendering.
+     *
+     * Ensures administrators bypass restrictions before delegating to the
+     * redirect logic that enforces membership requirements.
+     *
+     * @return void
+     */
+    public static function handle_access() {
+        if ( current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        self::maybe_redirect_restricted_content();
+    }
+
+    /**
      * Redirects visitors away from restricted posts before templates render.
      *
      * @return void
@@ -293,10 +309,6 @@ class WRPA_Access {
 
         $post = get_queried_object();
         if ( ! $post || empty( $post->ID ) ) {
-            return;
-        }
-
-        if ( current_user_can( 'manage_options' ) ) {
             return;
         }
 
@@ -393,6 +405,14 @@ class WRPA_Access {
      * @return bool
      */
     public static function can_access( $post_id, $user_id = null ) {
+        if ( null !== $user_id ) {
+            if ( user_can( $user_id, 'manage_options' ) ) {
+                return true;
+            }
+        } elseif ( current_user_can( 'manage_options' ) ) {
+            return true;
+        }
+
         return self::user_has_access( $post_id, $user_id );
     }
 
