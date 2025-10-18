@@ -32,7 +32,6 @@ class WRPA_Core {
         \WRPA\WRPA_Email_Verify::init();
         \WRPA\WRPA_Email_Admin::init();
         \WRPA\WRPA_Email_Cron::init();
-        \WRPA\WRPA_Cron::init();
         self::init_hooks();
     }
 
@@ -72,7 +71,6 @@ class WRPA_Core {
         require_once WRPA_PATH . 'includes/class-wrpa-email-verify.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-cron.php';
-        require_once WRPA_PATH . 'includes/class-wrpa-cron.php';
     }
 
     /**
@@ -138,10 +136,8 @@ class WRPA_Core {
      * @return void
      */
     public static function deactivate() {
-        wp_clear_scheduled_hook( 'wrpa_cron_event' );
-
         if ( function_exists( 'error_log' ) ) {
-            error_log( 'WRPA plugin deactivated — scheduled hooks cleared.' );
+            error_log( 'WRPA plugin deactivated.' );
         }
 
         do_action( 'wrpa/deactivate' );

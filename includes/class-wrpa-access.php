@@ -524,7 +524,7 @@ class WRPA_Access {
             return false;
         }
 
-        $verification_meta_key = class_exists( '\\WRPA\\WRPA_Email' ) ? \WRPA\WRPA_Email::META_VERIFIED : '_wrpa_email_verified';
+        $verification_meta_key = class_exists( '\\WRPA\\WRPA_Email_Verify' ) ? \WRPA\WRPA_Email_Verify::META_FLAG : 'wrpa_email_verified';
         $verified_flag         = get_user_meta( $checked_user_id, $verification_meta_key, true );
 
         if ( '1' !== (string) $verified_flag ) {
@@ -1186,7 +1186,7 @@ class WRPA_Access {
         }
 
         if ( class_exists( '\\WRPA\\WRPA_Email' ) ) {
-            $verification_meta_key = \WRPA\WRPA_Email::META_VERIFIED;
+            $verification_meta_key = class_exists( '\\WRPA\\WRPA_Email_Verify' ) ? \WRPA\WRPA_Email_Verify::META_FLAG : 'wrpa_email_verified';
             $verified_flag         = get_user_meta( $user_id, $verification_meta_key, true );
 
             if ( '1' !== (string) $verified_flag ) {
