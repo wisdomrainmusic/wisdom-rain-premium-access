@@ -35,6 +35,7 @@ class WRPA_Access {
         add_action( 'save_post', [ __CLASS__, 'save_restriction_settings' ], 10, 2 );
         add_filter( 'the_content', [ __CLASS__, 'filter_restricted_content' ] );
         add_shortcode( self::SHORTCODE_RESTRICTED, [ __CLASS__, 'render_restricted_shortcode' ] );
+        add_action( 'template_redirect', [ __CLASS__, 'maybe_redirect_restricted_content' ], 5 );
     }
 
     /**
@@ -277,6 +278,49 @@ class WRPA_Access {
     }
 
     /**
+     * Redirects visitors away from restricted posts before templates render.
+     *
+     * @return void
+     */
+    public static function maybe_redirect_restricted_content() {
+        if ( is_admin() || is_feed() ) {
+            return;
+        }
+
+        if ( ! is_singular() ) {
+            return;
+        }
+
+        $post = get_queried_object();
+        if ( ! $post || empty( $post->ID ) ) {
+            return;
+        }
+
+        if ( current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        $settings = self::get_restriction_settings( $post->ID );
+        if ( ! $settings['enabled'] ) {
+            return;
+        }
+
+        if ( self::can_access( $post->ID ) ) {
+            return;
+        }
+
+        $destination  = home_url( '/subscribe/' );
+        $current_path = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH ) : '';
+
+        if ( untrailingslashit( $current_path ) === '/subscribe' ) {
+            return;
+        }
+
+        wp_safe_redirect( $destination );
+        exit;
+    }
+
+    /**
      * Shortcode handler for [wrpa_restricted].
      *
      * @param array  $atts    Shortcode attributes.
@@ -339,6 +383,17 @@ class WRPA_Access {
         }
 
         return self::user_meets_plan_requirement( $settings['plan'], $user_id );
+    }
+
+    /**
+     * Public helper used by access control hooks to determine availability.
+     *
+     * @param int      $post_id Post identifier.
+     * @param int|null $user_id Optional user identifier.
+     * @return bool
+     */
+    public static function can_access( $post_id, $user_id = null ) {
+        return self::user_has_access( $post_id, $user_id );
     }
 
     /**
