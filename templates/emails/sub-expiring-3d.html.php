@@ -13,22 +13,36 @@
           <tr>
             <td>
               <!-- Email Content Starts -->
-              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'>Your Subscription Ends in 3 Days</h2>
-              <p style='margin:0 0 10px 0;font-size:16px;'>Hi {user_first_name},</p>
-              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>This is a friendly reminder that your {plan_name} subscription will end on {expire_date_human}. Renew now to avoid losing access to premium classes, live gatherings, and the member community.</p>
-              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>When you renew before the deadline, all of your saved playlists and progress remain intact. It only takes a moment.</p>
-              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Need support? Email <a href='mailto:{support_email}' style='color:#d50000;text-decoration:none;'>{support_email}</a> or send us a message from <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>your dashboard</a>.</p>
+              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'><?php echo esc_html__( 'Your Subscription Ends in 3 Days', 'wrpa' ); ?></h2>
+              <p style='margin:0 0 10px 0;font-size:16px;'><?php echo esc_html__( 'Hi {user_first_name},', 'wrpa' ); ?></p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'><?php echo esc_html__( 'This is a friendly reminder that your {plan_name} subscription will end on {expire_date_human}. Renew now to avoid losing access to premium classes, live gatherings, and the member community.', 'wrpa' ); ?></p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'><?php echo esc_html__( 'When you renew before the deadline, all of your saved playlists and progress remain intact. It only takes a moment.', 'wrpa' ); ?></p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>
+                <?php
+                $support_link = '<a href="mailto:{support_email}" style="color:#d50000;text-decoration:none;">{support_email}</a>';
+                $dashboard_link = '<a href="{dashboard_url}" style="color:#d50000;text-decoration:none;">' . esc_html__( 'your dashboard', 'wrpa' ) . '</a>';
+                echo wp_kses(
+                    sprintf(
+                        /* translators: 1: support email, 2: dashboard link */
+                        __( 'Need support? Email %1$s or send us a message from %2$s.', 'wrpa' ),
+                        $support_link,
+                        $dashboard_link
+                    ),
+                    [ 'a' => [ 'href' => [], 'style' => [] ] ]
+                );
+                ?>
+              </p>
               <p style='margin:26px 0;'>
                 <a href='{manage_subscription_url}' style='display:inline-block;padding:12px 24px;text-decoration:none;border-radius:6px;
                    background-color:#d50000;color:#ffffff;font-weight:bold;'>
-                  Renew Now
+                  <?php echo esc_html__( 'Renew Now', 'wrpa' ); ?>
                 </a>
               </p>
-              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'>Warm regards,<br><strong>Wisdom Rain</strong></p>
+              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'><?php echo esc_html__( 'Warm regards,', 'wrpa' ); ?><br><strong><?php echo esc_html__( 'Wisdom Rain', 'wrpa' ); ?></strong></p>
               <hr style='border:0;border-top:1px solid #ddd;margin:30px 0;'>
-              <small style='font-size:12px;color:#666;'>You are receiving this email from {site_name}. 
-                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>My Account</a> · 
-                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'>Unsubscribe</a>
+              <small style='font-size:12px;color:#666;'><?php echo esc_html__( 'You are receiving this email from {site_name}.', 'wrpa' ); ?>
+                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'><?php echo esc_html__( 'My Account', 'wrpa' ); ?></a> ·
+                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'><?php echo esc_html__( 'Unsubscribe', 'wrpa' ); ?></a>
               </small>
               <!-- Email Content Ends -->
             </td>

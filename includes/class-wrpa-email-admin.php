@@ -309,11 +309,16 @@ class WRPA_Email_Admin {
         $slug      = isset( $_REQUEST['slug'] ) ? sanitize_key( wp_unslash( $_REQUEST['slug'] ) ) : '';
 
         if ( isset( $_GET['wrpa_generate_preview'] ) && $slug ) {
-            self::$preview_html = self::generate_preview_html( $slug, self::get_dummy_template_vars() );
-            if ( '' === self::$preview_html ) {
-                self::add_message( 'error', __( 'The selected template could not be rendered with the provided data.', 'wrpa' ) );
+            $nonce = isset( $_GET['wrpa_preview_email_nonce'] ) ? sanitize_text_field( wp_unslash( $_GET['wrpa_preview_email_nonce'] ) ) : '';
+            if ( ! wp_verify_nonce( $nonce, 'wrpa_preview_email' ) ) {
+                self::add_message( 'error', __( 'Security check failed. Preview was not generated.', 'wrpa' ) );
             } else {
-                self::add_message( 'success', __( 'Preview generated successfully.', 'wrpa' ) );
+                self::$preview_html = self::generate_preview_html( $slug, self::get_dummy_template_vars() );
+                if ( '' === self::$preview_html ) {
+                    self::add_message( 'error', __( 'The selected template could not be rendered with the provided data.', 'wrpa' ) );
+                } else {
+                    self::add_message( 'success', __( 'Preview generated successfully.', 'wrpa' ) );
+                }
             }
         }
 
@@ -329,6 +334,7 @@ class WRPA_Email_Admin {
 
         echo '<form method="get" class="wrpa-email-preview-form">';
         echo '<input type="hidden" name="page" value="wrpa-email-preview" />';
+        wp_nonce_field( 'wrpa_preview_email', 'wrpa_preview_email_nonce' );
         echo '<p><label for="wrpa-preview-slug">' . esc_html__( 'Template', 'wrpa' ) . '</label><br />';
         echo '<select name="slug" id="wrpa-preview-slug" class="regular-text">';
         echo '<option value="">' . esc_html__( 'Select template…', 'wrpa' ) . '</option>';
@@ -493,6 +499,11 @@ class WRPA_Email_Admin {
      * Handles template edit submissions.
      */
     protected static function handle_edit_submission() : void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::add_message( 'error', __( 'You are not allowed to modify email templates.', 'wrpa' ) );
+            return;
+        }
+
         if ( ! isset( $_POST['wrpa_edit_template_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wrpa_edit_template_nonce'] ) ), 'wrpa_edit_template' ) ) {
             self::add_message( 'error', __( 'Security check failed. Template was not saved.', 'wrpa' ) );
             return;
@@ -512,7 +523,15 @@ class WRPA_Email_Admin {
             return;
         }
 
-        if ( ! is_writable( $plugin_path ) ) {
+        $plugin_dir = realpath( trailingslashit( dirname( __DIR__ ) ) . 'templates/emails/' );
+        $real_path  = realpath( $plugin_path );
+
+        if ( false === $plugin_dir || false === $real_path || 0 !== strpos( $real_path, $plugin_dir ) ) {
+            self::add_message( 'error', __( 'Unauthorized template path detected. Edit aborted.', 'wrpa' ) );
+            return;
+        }
+
+        if ( ! is_writable( $real_path ) ) {
             self::add_message( 'error', __( 'Template file is not writable. Use a theme override.', 'wrpa' ) );
             return;
         }
@@ -530,7 +549,7 @@ class WRPA_Email_Admin {
             return;
         }
 
-        $written = file_put_contents( $plugin_path, $sanitized );
+        $written = file_put_contents( $real_path, $sanitized, LOCK_EX );
 
         if ( false === $written ) {
             self::add_message( 'error', __( 'Template file could not be saved.', 'wrpa' ) );
@@ -544,6 +563,11 @@ class WRPA_Email_Admin {
      * Handles test email submissions.
      */
     protected static function handle_test_submission() : void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::add_message( 'error', __( 'You are not allowed to send test emails.', 'wrpa' ) );
+            return;
+        }
+
         if ( ! isset( $_POST['wrpa_test_email_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wrpa_test_email_nonce'] ) ), 'wrpa_test_email' ) ) {
             self::add_message( 'error', __( 'Security check failed. Test email aborted.', 'wrpa' ) );
             return;
@@ -584,6 +608,11 @@ class WRPA_Email_Admin {
      * Handles campaign blast submissions.
      */
     protected static function handle_campaign_submission() : void {
+        if ( ! current_user_can( 'manage_options' ) ) {
+            self::add_message( 'error', __( 'You are not allowed to queue campaigns.', 'wrpa' ) );
+            return;
+        }
+
         if ( ! isset( $_POST['wrpa_campaign_send_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['wrpa_campaign_send_nonce'] ) ), 'wrpa_campaign_send' ) ) {
             self::add_message( 'error', __( 'Security check failed. Campaign was not queued.', 'wrpa' ) );
             return;
@@ -844,19 +873,30 @@ class WRPA_Email_Admin {
      * @return array<int, array<string, mixed>>
      */
     protected static function get_templates() : array {
-        $templates   = [];
-        $plugin_dir  = trailingslashit( dirname( __DIR__ ) ) . 'templates/emails/';
-        $plugin_files = glob( $plugin_dir . '*.html.php' );
+        $templates  = [];
+        $plugin_dir = realpath( trailingslashit( dirname( __DIR__ ) ) . 'templates/emails/' );
+
+        if ( false === $plugin_dir ) {
+            return [];
+        }
+
+        $plugin_files = glob( trailingslashit( $plugin_dir ) . '*.html.php' );
 
         if ( ! $plugin_files ) {
             $plugin_files = [];
         }
 
         foreach ( $plugin_files as $file ) {
-            $slug      = basename( $file, '.html.php' );
+            $real = realpath( $file );
+
+            if ( false === $real || 0 !== strpos( $real, $plugin_dir ) ) {
+                continue;
+            }
+
+            $slug        = basename( $real, '.html.php' );
             $templates[] = [
                 'slug'          => $slug,
-                'plugin_path'   => $file,
+                'plugin_path'   => $real,
                 'override_path' => self::get_theme_override_path( $slug ),
             ];
         }
@@ -883,11 +923,21 @@ class WRPA_Email_Admin {
             return null;
         }
 
-        $plugin_dir = trailingslashit( dirname( __DIR__ ) ) . 'templates/emails/';
-        $path       = $plugin_dir . $slug . '.html.php';
+        $plugin_dir = realpath( trailingslashit( dirname( __DIR__ ) ) . 'templates/emails/' );
 
-        if ( file_exists( $path ) && 0 === strpos( realpath( $path ), realpath( $plugin_dir ) ) ) {
-            return $path;
+        if ( false === $plugin_dir ) {
+            return null;
+        }
+
+        $path = $plugin_dir . DIRECTORY_SEPARATOR . $slug . '.html.php';
+        $real = file_exists( $path ) ? realpath( $path ) : false;
+
+        if ( false === $real ) {
+            return null;
+        }
+
+        if ( 0 === strpos( $real, $plugin_dir ) ) {
+            return $real;
         }
 
         return null;
@@ -1024,7 +1074,19 @@ class WRPA_Email_Admin {
             'manage_subscription_url' => home_url( '/abonelik/' ),
             'account_url'           => home_url( '/hesabim/' ),
             'order_id'              => 'WRPA-12345',
-            'verification_url'      => home_url( '/?wrpa=verify&token=dummy' ),
+            'verify_email_url'      => $user_id ? WRPA_Email_Verify::get_verify_url( $user_id ) : home_url( '/verify-email/' ),
+            'unsubscribe_url'       => home_url( '/abonelik-iptal/' ),
+            'gift_card_url'         => home_url( '/hediye-karti/' ),
+            'campaign_event_url'    => home_url( '/etkinlik/wrpa/' ),
+            'share_link'            => home_url( '/paylas/wrpa/' ),
+            'returning_member_guide' => home_url( '/rehber/geri-donus/' ),
+            'special_offer_text'    => __( 'Use code WRPA-20 for 20% off', 'wrpa' ),
+            'secondary_cta_text'    => __( 'Visit the help center', 'wrpa' ),
+            'primary_cta_label'     => __( 'View Details', 'wrpa' ),
+            'primary_cta_url'       => home_url( '/kampanya/' ),
+            'blast_title'           => __( 'Community Update', 'wrpa' ),
+            'blast_intro'           => __( 'Here is a quick update about our latest programs.', 'wrpa' ),
+            'blast_body'            => __( 'We have released new guided sessions and community features to explore.', 'wrpa' ),
             'plan_name_plain'       => $plan['name'] ?? __( 'Premium', 'wrpa' ),
         ];
 
