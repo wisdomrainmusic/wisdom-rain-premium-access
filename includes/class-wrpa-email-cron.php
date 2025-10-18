@@ -198,10 +198,46 @@ class WRPA_Email_Cron {
         }
 
         $order_id   = method_exists( $order, 'get_order_number' ) ? $order->get_order_number() : $order->get_id();
+        $order_total = method_exists( $order, 'get_formatted_order_total' ) ? $order->get_formatted_order_total() : $order->get_total();
+
+        $order_date = '';
+        if ( method_exists( $order, 'get_date_completed' ) ) {
+            $completed = $order->get_date_completed();
+            if ( $completed instanceof \WC_DateTime ) {
+                $order_date = function_exists( 'wc_format_datetime' ) ? wc_format_datetime( $completed ) : $completed->date_i18n( get_option( 'date_format' ) );
+            }
+        }
+
+        if ( '' === $order_date && method_exists( $order, 'get_date_created' ) ) {
+            $created = $order->get_date_created();
+            if ( $created instanceof \WC_DateTime ) {
+                $order_date = function_exists( 'wc_format_datetime' ) ? wc_format_datetime( $created ) : $created->date_i18n( get_option( 'date_format' ) );
+            }
+        }
+
+        $plan_name = '';
+        if ( method_exists( $order, 'get_items' ) ) {
+            foreach ( $order->get_items() as $item ) {
+                if ( is_object( $item ) && method_exists( $item, 'get_name' ) ) {
+                    $plan_name = (string) $item->get_name();
+                    break;
+                }
+            }
+        }
+
+        $invoice_url = method_exists( $order, 'get_view_order_url' ) ? $order->get_view_order_url() : '';
+
         $order_data = [
-            'order_id'    => $order_id,
-            'order_total' => method_exists( $order, 'get_formatted_order_total' ) ? $order->get_formatted_order_total() : $order->get_total(),
+            'order_id'      => $order_id,
+            'order_total'   => $order_total,
+            'order_date'    => $order_date,
+            'invoice_url'   => $invoice_url,
+            'support_email' => self::get_support_email(),
         ];
+
+        if ( '' !== $plan_name ) {
+            $order_data['plan_name'] = $plan_name;
+        }
 
         $sent = WRPA_Email::send_email( $user_id, 'order-completed', $order_data );
 
