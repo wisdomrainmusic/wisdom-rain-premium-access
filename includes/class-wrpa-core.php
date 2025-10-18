@@ -27,6 +27,7 @@ class WRPA_Core {
 
         self::define_constants();
         self::load_dependencies();
+        \WRPA\WRPA_Admin::init();
         self::init_hooks();
     }
 
