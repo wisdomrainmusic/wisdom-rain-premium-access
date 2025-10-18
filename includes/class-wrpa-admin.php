@@ -10,11 +10,26 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 class WRPA_Admin {
 
+    /**
+     * Tracks whether the admin menu has already been registered to prevent duplicates.
+     *
+     * @var bool
+     */
+    protected static $menu_registered = false;
+
     public static function init() {
-        add_action( 'admin_menu', [ __CLASS__, 'register_menu' ] );
+        if ( ! has_action( 'admin_menu', [ __CLASS__, 'register_menu' ] ) ) {
+            add_action( 'admin_menu', [ __CLASS__, 'register_menu' ] );
+        }
     }
 
     public static function register_menu() {
+        if ( self::$menu_registered ) {
+            return;
+        }
+
+        self::$menu_registered = true;
+
         // Ana menü
         add_menu_page(
             __( 'WRPA Dashboard', 'wrpa' ),
