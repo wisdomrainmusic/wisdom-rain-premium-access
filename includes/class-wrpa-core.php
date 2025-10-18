@@ -27,7 +27,10 @@ class WRPA_Core {
 
         self::define_constants();
         self::load_dependencies();
+        \WRPA\WRPA_Access::init();
         \WRPA\WRPA_Admin::init();
+        \WRPA\WRPA_Email::init();
+        \WRPA\WRPA_Cron::init();
         self::init_hooks();
     }
 
