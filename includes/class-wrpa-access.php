@@ -786,15 +786,24 @@ class WRPA_Access {
             return;
         }
 
-        $duration_days = max( 0, (int) $matched_plan['days'] );
+        $duration_days   = max( 0, (int) $matched_plan['days'] );
+        $now             = (int) current_time( 'timestamp' );
+        $current_expiry  = absint( get_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, true ) );
+        $previous_expiry = $current_expiry;
+        $extended        = false;
 
-        $now            = time();
-        $current_expiry = (int) get_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, true );
-        $base_timestamp  = ( $current_expiry > $now ) ? $current_expiry : $now;
+        if ( $duration_days > 0 ) {
+            if ( $current_expiry > $now ) {
+                $expires  = $current_expiry + ( $duration_days * DAY_IN_SECONDS );
+                $extended = true;
+            } else {
+                $expires = $now + ( $duration_days * DAY_IN_SECONDS );
+            }
+        } else {
+            $expires = 0;
+        }
 
-        $expires = $duration_days > 0 ? $base_timestamp + ( $duration_days * DAY_IN_SECONDS ) : 0;
-
-        update_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, $expires );
+        update_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, $expires ? absint( $expires ) : 0 );
 
         if ( '' === $first_subscription ) {
             update_user_meta( $user_id, '_wrpa_first_subscription_date', current_time( 'timestamp' ) );
@@ -804,7 +813,11 @@ class WRPA_Access {
         $order->save();
 
         if ( method_exists( __CLASS__, 'log' ) ) {
-            self::log( sprintf( 'WRPA access granted for user %d via order #%d (%s plan). New expiry: %s.', $user_id, $order_id, $matched_plan['key'], $expires ? gmdate( 'c', $expires ) : 'never' ) );
+            $previous_label = $previous_expiry ? gmdate( 'c', $previous_expiry ) : 'none';
+            $new_label      = $expires ? gmdate( 'c', $expires ) : 'never';
+            $action         = $extended ? 'extended' : 'granted';
+
+            self::log( sprintf( 'WRPA access %s for user %d via order #%d (%s plan). Previous expiry: %s. New expiry: %s.', $action, $user_id, $order_id, $matched_plan['key'], $previous_label, $new_label ) );
         }
     }
 }
