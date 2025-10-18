@@ -658,7 +658,9 @@ class WRPA_Access {
             return;
         }
 
-        if ( 'yes' === $order->get_meta( '_wrpa_access_granted' ) ) {
+        $access_state = $order->get_meta( '_wrpa_access_granted' );
+
+        if ( in_array( $access_state, [ 'yes', 'trial_skipped' ], true ) ) {
             return;
         }
 
@@ -750,6 +752,20 @@ class WRPA_Access {
             return;
         }
 
+        $first_subscription = get_user_meta( $user_id, '_wrpa_first_subscription_date', true );
+
+        if ( 'trial' === $matched_plan['key'] && ! empty( $first_subscription ) ) {
+            if ( method_exists( __CLASS__, 'log' ) ) {
+                $recorded_on = is_numeric( $first_subscription ) ? gmdate( 'c', (int) $first_subscription ) : (string) $first_subscription;
+                self::log( sprintf( 'WRPA trial access skipped for user %d via order #%d — first subscription already recorded on %s.', $user_id, $order_id, $recorded_on ) );
+            }
+
+            $order->update_meta_data( '_wrpa_access_granted', 'trial_skipped' );
+            $order->save();
+
+            return;
+        }
+
         $duration_days = max( 0, (int) $matched_plan['days'] );
 
         $now            = time();
@@ -760,7 +776,6 @@ class WRPA_Access {
 
         update_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, $expires );
 
-        $first_subscription = get_user_meta( $user_id, '_wrpa_first_subscription_date', true );
         if ( '' === $first_subscription ) {
             update_user_meta( $user_id, '_wrpa_first_subscription_date', current_time( 'timestamp' ) );
         }
