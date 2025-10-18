@@ -21,7 +21,7 @@ class WRPA_Admin {
             'wrpa-dashboard',         // Slug
             [ __CLASS__, 'dashboard_page' ], // Callback
             'dashicons-star-filled',  // İkon
-            2                         // Sıra
+            2                         // Sıra (Dashboard'un hemen altı)
         );
     }
 
