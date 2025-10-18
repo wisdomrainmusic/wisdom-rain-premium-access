@@ -23,9 +23,9 @@ class WRPA_Email {
         // Ensure HTML emails.
         add_filter( 'wp_mail_content_type', [ __CLASS__, 'force_html_content_type' ] );
 
-        // Default From headers (FluentSMTP will deliver; we standardize here).
-        add_filter( 'wp_mail_from', [ __CLASS__, 'mail_from' ] );
-        add_filter( 'wp_mail_from_name', [ __CLASS__, 'mail_from_name' ] );
+        // Normalize From headers without duplicating FluentSMTP defaults.
+        add_filter( 'wp_mail_from', fn() => apply_filters( 'wrpa_mail_from', 'no-reply@wisdomrainbookmusic.com' ) );
+        add_filter( 'wp_mail_from_name', fn() => apply_filters( 'wrpa_mail_from_name', 'Wisdom Rain' ) );
 
         // Account verification handler.
         add_action( 'init', [ __CLASS__, 'maybe_verify_account' ] );
@@ -39,17 +39,15 @@ class WRPA_Email {
     }
 
     /**
-     * Standardize the From address.
+     * Normalized headers shared across all WRPA outbound emails.
      */
-    public static function mail_from( $email ) : string {
-        return apply_filters( 'wrpa_mail_from', 'no-reply@wisdomrainbookmusic.com' );
-    }
+    public static function get_headers() : array {
+        $headers = [
+            'Content-Type: text/html; charset=UTF-8',
+            'From: Wisdom Rain <no-reply@wisdomrainbookmusic.com>',
+        ];
 
-    /**
-     * Standardize the From name.
-     */
-    public static function mail_from_name( $name ) : string {
-        return apply_filters( 'wrpa_mail_from_name', 'Wisdom Rain' );
+        return apply_filters( 'wrpa_email_headers', $headers );
     }
 
     /**
@@ -75,6 +73,7 @@ class WRPA_Email {
             /**
              * Allow implementers to handle missing templates.
              */
+            do_action( 'wrpa_mail_failed', $user_id, $slug, 'missing_template' );
             do_action( 'wrpa_email_failed', $user_id, $slug, 'missing_template' );
             self::log( 'WRPA email send aborted — template missing.', [ 'user_id' => $user_id, 'slug' => $slug ] );
             return false;
@@ -88,17 +87,54 @@ class WRPA_Email {
 
         $to        = $user->user_email;
         $to        = apply_filters( 'wrpa_email_recipients', $to, $slug, $vars );
-        $headers   = [];
-        $headers[] = 'Content-Type: text/html; charset=UTF-8';
+        $headers = self::get_headers();
 
-        $sent = wp_mail( $to, $subject, $body, $headers );
+        try {
+            $sent = wp_mail( $to, $subject, $body, $headers );
+        } catch ( \Throwable $exception ) {
+            $error = $exception->getMessage();
+
+            do_action( 'wrpa_mail_failed', $user_id, $slug, $error );
+            do_action( 'wrpa_email_failed', $user_id, $slug, 'exception' );
+
+            self::debug_log(
+                'Exception thrown while attempting to send email.',
+                [
+                    'user_id' => $user_id,
+                    'slug'    => $slug,
+                    'error'   => $error,
+                ]
+            );
+
+            self::log(
+                'WRPA email failed to send.',
+                [
+                    'user_id'   => $user_id,
+                    'slug'      => $slug,
+                    'recipient' => $to,
+                    'error'     => $error,
+                ]
+            );
+
+            return false;
+        }
 
         if ( $sent ) {
+            do_action( 'wrpa_mail_sent', $user_id, $slug, $subject );
             do_action( 'wrpa_email_sent', $user_id, $slug, [
                 'recipient' => $to,
                 'subject'   => $subject,
                 'vars'      => $vars,
             ] );
+
+            self::debug_log(
+                'Email sent successfully.',
+                [
+                    'user_id'   => $user_id,
+                    'slug'      => $slug,
+                    'recipient' => $to,
+                ]
+            );
 
             self::log(
                 'WRPA email sent.',
@@ -112,13 +148,27 @@ class WRPA_Email {
             return true;
         }
 
-        do_action( 'wrpa_email_failed', $user_id, $slug, 'wp_mail_failed' );
+        $error = 'wp_mail_failed';
+
+        do_action( 'wrpa_mail_failed', $user_id, $slug, $error );
+        do_action( 'wrpa_email_failed', $user_id, $slug, $error );
+
+        self::debug_log(
+            'wp_mail() returned false.',
+            [
+                'user_id'   => $user_id,
+                'slug'      => $slug,
+                'recipient' => $to,
+            ]
+        );
+
         self::log(
             'WRPA email failed to send.',
             [
                 'user_id'   => $user_id,
                 'slug'      => $slug,
                 'recipient' => $to,
+                'error'     => $error,
             ]
         );
         return false;
@@ -340,7 +390,7 @@ class WRPA_Email {
             esc_url( $verify_url )
         );
 
-        $fallback_sent = wp_mail( $user->user_email, $subject, $message );
+        $fallback_sent = wp_mail( $user->user_email, $subject, $message, self::get_headers() );
 
         if ( $fallback_sent ) {
             self::log(
@@ -408,6 +458,37 @@ class WRPA_Email {
             'WRPA email verification confirmed.',
             [ 'user_id' => $user_id ]
         );
+    }
+
+    /**
+     * Writes detailed mail logs to wp-content/debug.log for transport debugging.
+     */
+    public static function debug_log( $message, array $context = [] ) : void {
+        if ( ! defined( 'WP_CONTENT_DIR' ) || ! is_dir( WP_CONTENT_DIR ) ) {
+            return;
+        }
+
+        $entry = '[WRPA_MAIL] ' . $message;
+
+        if ( ! empty( $context ) ) {
+            $context_string = function_exists( 'wp_json_encode' ) ? wp_json_encode( $context ) : json_encode( $context );
+
+            if ( $context_string ) {
+                $entry .= ' ' . $context_string;
+            }
+        }
+
+        $file = WP_CONTENT_DIR . '/debug.log';
+
+        if ( file_exists( $file ) && ! is_writable( $file ) ) {
+            return;
+        }
+
+        if ( ! file_exists( $file ) && ! is_writable( WP_CONTENT_DIR ) ) {
+            return;
+        }
+
+        file_put_contents( $file, $entry . PHP_EOL, FILE_APPEND | LOCK_EX );
     }
 
     /**
