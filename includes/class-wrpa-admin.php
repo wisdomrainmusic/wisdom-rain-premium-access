@@ -55,10 +55,9 @@ class WRPA_Admin {
      */
     public static function render_nav_tabs( $active_slug ) {
         $tabs = [
-            'wrpa-members'         => __( 'Members', 'wrpa' ),
-            'wrpa-emails'          => __( 'Email Templates', 'wrpa' ),
-            'wrpa-email-settings'  => __( 'Email Settings', 'wrpa' ),
-            'wrpa-settings'        => __( 'Settings', 'wrpa' ),
+            'wrpa-members'          => __( 'Members', 'wrpa' ),
+            'wrpa-email-templates'  => __( 'Email', 'wrpa' ),
+            'wrpa-settings'         => __( 'Settings', 'wrpa' ),
         ];
 
         echo '<h2 class="nav-tab-wrapper">';
