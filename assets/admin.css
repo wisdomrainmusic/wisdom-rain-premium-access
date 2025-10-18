@@ -1,7 +1,0 @@
-/* Simple admin styles for WRPA */
-.wrap .wrpa-status-active { color:#fff; background:#4CAF50; padding:2px 8px; border-radius:6px; }
-.wrap .wrpa-status-expired { color:#fff; background:#F44336; padding:2px 8px; border-radius:6px; }
-.wrap .wrpa-status-none { color:#333; background:#ddd; padding:2px 8px; border-radius:6px; }
-.wrpa-table { width:100%; border-collapse: collapse; }
-.wrpa-table th, .wrpa-table td { border:1px solid #e5e5e5; padding:8px; }
-.wrpa-badge { display:inline-block; }
