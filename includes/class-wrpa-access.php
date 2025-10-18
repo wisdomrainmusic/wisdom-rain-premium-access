@@ -642,6 +642,39 @@ class WRPA_Access {
     }
 
     /**
+     * Retrieves configured plan/product mappings from stored options.
+     *
+     * @return array
+     */
+    protected static function get_plan_configurations() {
+        $option_map = [
+            'trial'   => [
+                'product_id' => 'wrpa_plan_trial_id',
+                'days'       => 'wrpa_trial_days',
+            ],
+            'monthly' => [
+                'product_id' => 'wrpa_plan_monthly_id',
+                'days'       => 'wrpa_monthly_days',
+            ],
+            'yearly'  => [
+                'product_id' => 'wrpa_plan_yearly_id',
+                'days'       => 'wrpa_yearly_days',
+            ],
+        ];
+
+        $plans = [];
+
+        foreach ( $option_map as $plan_key => $settings_keys ) {
+            $plans[ $plan_key ] = [
+                'product_id' => absint( get_option( $settings_keys['product_id'], 0 ) ),
+                'days'       => absint( get_option( $settings_keys['days'], 0 ) ),
+            ];
+        }
+
+        return $plans;
+    }
+
+    /**
      * Grants or extends user access based on a WooCommerce order.
      *
      * @param int $order_id WooCommerce order identifier.
@@ -710,20 +743,7 @@ class WRPA_Access {
             return;
         }
 
-        $plans = [
-            'trial'   => [
-                'product_id' => absint( get_option( 'wrpa_plan_trial_id', 0 ) ),
-                'days'       => absint( get_option( 'wrpa_trial_days', 0 ) ),
-            ],
-            'monthly' => [
-                'product_id' => absint( get_option( 'wrpa_plan_monthly_id', 0 ) ),
-                'days'       => absint( get_option( 'wrpa_monthly_days', 0 ) ),
-            ],
-            'yearly'  => [
-                'product_id' => absint( get_option( 'wrpa_plan_yearly_id', 0 ) ),
-                'days'       => absint( get_option( 'wrpa_yearly_days', 0 ) ),
-            ],
-        ];
+        $plans = self::get_plan_configurations();
 
         $matched_plan = null;
 
