@@ -772,9 +772,11 @@ class WRPA_Access {
             return;
         }
 
-        $first_subscription = get_user_meta( $user_id, '_wrpa_first_subscription_date', true );
+        $first_subscription_key     = '_wrpa_first_subscription_date';
+        $first_subscription_exists  = metadata_exists( 'user', $user_id, $first_subscription_key );
+        $first_subscription         = $first_subscription_exists ? get_user_meta( $user_id, $first_subscription_key, true ) : '';
 
-        if ( 'trial' === $matched_plan['key'] && ! empty( $first_subscription ) ) {
+        if ( 'trial' === $matched_plan['key'] && $first_subscription_exists ) {
             if ( method_exists( __CLASS__, 'log' ) ) {
                 $recorded_on = is_numeric( $first_subscription ) ? gmdate( 'c', (int) $first_subscription ) : (string) $first_subscription;
                 self::log( sprintf( 'WRPA trial access skipped for user %d via order #%d — first subscription already recorded on %s.', $user_id, $order_id, $recorded_on ) );
@@ -805,12 +807,17 @@ class WRPA_Access {
 
         update_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, $expires ? absint( $expires ) : 0 );
 
-        if ( '' === $first_subscription ) {
-            update_user_meta( $user_id, '_wrpa_first_subscription_date', current_time( 'timestamp' ) );
-        }
-
         $order->update_meta_data( '_wrpa_access_granted', 'yes' );
         $order->save();
+
+        if ( ! $first_subscription_exists ) {
+            $first_subscription_timestamp = current_time( 'timestamp' );
+            update_user_meta( $user_id, $first_subscription_key, $first_subscription_timestamp );
+
+            if ( method_exists( __CLASS__, 'log' ) ) {
+                self::log( sprintf( 'WRPA first subscription date recorded for user %d via order #%d at %s.', $user_id, $order_id, gmdate( 'c', $first_subscription_timestamp ) ) );
+            }
+        }
 
         if ( method_exists( __CLASS__, 'log' ) ) {
             $previous_label = $previous_expiry ? gmdate( 'c', $previous_expiry ) : 'none';
