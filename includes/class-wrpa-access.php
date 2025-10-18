@@ -22,6 +22,7 @@ class WRPA_Access {
     const USER_PLAN_META           = '_wrpa_membership_plan';
     const USER_EXPIRY_META         = '_wrpa_membership_expiry';
     const USER_ACCESS_EXPIRES_META = '_wrpa_access_expires';
+    const USER_TRIAL_END_META      = '_wrpa_trial_end';
 
     const SHORTCODE_RESTRICTED = 'wrpa_restricted';
 
@@ -591,6 +592,192 @@ class WRPA_Access {
     }
 
     /**
+     * Retrieves the stored plan details for the user.
+     *
+     * @param int $user_id User identifier.
+     * @return array<string,mixed>
+     */
+    public static function get_user_plan( $user_id ) {
+        $user_id  = absint( $user_id );
+        $plan_key = $user_id ? get_user_meta( $user_id, self::USER_PLAN_META, true ) : '';
+
+        if ( ! $plan_key ) {
+            return [];
+        }
+
+        $plan_key = sanitize_key( $plan_key );
+        $labels   = [
+            'trial'   => __( 'Trial', 'wrpa' ),
+            'monthly' => __( 'Monthly', 'wrpa' ),
+            'yearly'  => __( 'Yearly', 'wrpa' ),
+        ];
+
+        return [
+            'key'      => $plan_key,
+            'name'     => $labels[ $plan_key ] ?? ucwords( str_replace( '-', ' ', $plan_key ) ),
+            'interval' => $plan_key,
+        ];
+    }
+
+    /**
+     * Returns the expiry date in Y-m-d format for the provided user.
+     *
+     * @param int $user_id User identifier.
+     * @return string
+     */
+    public static function get_expire_date( $user_id ) {
+        $timestamp = get_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, true );
+        $timestamp = (int) $timestamp;
+
+        if ( $timestamp <= 0 ) {
+            return '';
+        }
+
+        return self::format_timestamp_as_date( $timestamp );
+    }
+
+    /**
+     * Returns the recorded trial end date for the provided user.
+     *
+     * @param int $user_id User identifier.
+     * @return string
+     */
+    public static function get_trial_end( $user_id ) {
+        $timestamp = get_user_meta( $user_id, self::USER_TRIAL_END_META, true );
+        $timestamp = (int) $timestamp;
+
+        if ( $timestamp <= 0 ) {
+            return '';
+        }
+
+        return self::format_timestamp_as_date( $timestamp );
+    }
+
+    /**
+     * Returns user IDs whose subscriptions expire in the provided number of days.
+     *
+     * @param int $days  Days in the future (0 = today).
+     * @param int $limit Maximum number of user IDs to return.
+     * @return array<int,int>
+     */
+    public static function get_users_expiring_in( $days, $limit = 200 ) {
+        $limit = (int) $limit;
+
+        if ( $limit <= 0 || ! function_exists( 'get_users' ) ) {
+            return [];
+        }
+
+        $timezone = self::get_timezone();
+        $base     = new \DateTimeImmutable( 'now', $timezone );
+        $modifier = sprintf( '%+d days', (int) $days );
+        $target   = $base->setTime( 0, 0, 0 )->modify( $modifier );
+        $range    = self::get_day_range( $target );
+
+        return self::query_users_by_meta_range( self::USER_ACCESS_EXPIRES_META, $range['start'], $range['end'], $limit );
+    }
+
+    /**
+     * Returns user IDs whose subscriptions expired on the day calculated by the modifier.
+     *
+     * @param string $modifier Date modify string, e.g. '-3 days', '-3 months'.
+     * @param int    $limit    Maximum number of user IDs to return.
+     * @return array<int,int>
+     */
+    public static function get_users_expired_since( $modifier, $limit = 200 ) {
+        $limit = (int) $limit;
+
+        if ( $limit <= 0 || ! function_exists( 'get_users' ) ) {
+            return [];
+        }
+
+        $timezone = self::get_timezone();
+
+        try {
+            $base   = new \DateTimeImmutable( 'now', $timezone );
+            $target = $base->setTime( 0, 0, 0 )->modify( (string) $modifier );
+        } catch ( \Exception $e ) {
+            return [];
+        }
+
+        $range = self::get_day_range( $target );
+
+        return self::query_users_by_meta_range( self::USER_ACCESS_EXPIRES_META, $range['start'], $range['end'], $limit );
+    }
+
+    /**
+     * Returns user IDs whose trial ends on the specified day.
+     *
+     * @param string $when  Relative day specification (e.g. 'today', '+1 day').
+     * @param int    $limit Maximum number of user IDs to return.
+     * @return array<int,int>
+     */
+    public static function get_users_with_trial_end( $when = 'today', $limit = 200 ) {
+        $limit = (int) $limit;
+
+        if ( $limit <= 0 || ! function_exists( 'get_users' ) ) {
+            return [];
+        }
+
+        $timezone = self::get_timezone();
+
+        try {
+            $base   = new \DateTimeImmutable( 'now', $timezone );
+            $target = ( 'today' === $when ) ? $base : $base->modify( (string) $when );
+            $target = $target->setTime( 0, 0, 0 );
+        } catch ( \Exception $e ) {
+            return [];
+        }
+
+        $range = self::get_day_range( $target );
+
+        return self::query_users_by_meta_range( self::USER_TRIAL_END_META, $range['start'], $range['end'], $limit );
+    }
+
+    /**
+     * Returns active subscriber IDs (expiry in the future or no expiry).
+     *
+     * @param int $limit Maximum number of user IDs to return.
+     * @return array<int,int>
+     */
+    public static function get_active_user_ids( $limit = 200 ) {
+        $limit = (int) $limit;
+
+        if ( $limit <= 0 || ! function_exists( 'get_users' ) ) {
+            return [];
+        }
+
+        $now = (int) current_time( 'timestamp' );
+
+        $users = get_users(
+            [
+                'number'     => $limit,
+                'fields'     => 'ids',
+                'meta_query' => [
+                    'relation' => 'OR',
+                    [
+                        'key'     => self::USER_ACCESS_EXPIRES_META,
+                        'value'   => $now,
+                        'compare' => '>=',
+                        'type'    => 'NUMERIC',
+                    ],
+                    [
+                        'key'     => self::USER_ACCESS_EXPIRES_META,
+                        'value'   => 0,
+                        'compare' => '=',
+                        'type'    => 'NUMERIC',
+                    ],
+                    [
+                        'key'     => self::USER_ACCESS_EXPIRES_META,
+                        'compare' => 'NOT EXISTS',
+                    ],
+                ],
+            ]
+        );
+
+        return self::normalize_user_ids( $users );
+    }
+
+    /**
      * Determines if a membership is active based on the expiry timestamp.
      *
      * @param array $membership Membership data array.
@@ -929,6 +1116,14 @@ class WRPA_Access {
         }
 
         update_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, $expires ? absint( $expires ) : 0 );
+        update_user_meta( $user_id, self::USER_PLAN_META, $matched_plan['key'] );
+        update_user_meta( $user_id, self::USER_EXPIRY_META, $expires ? absint( $expires ) : 0 );
+
+        if ( 'trial' === $matched_plan['key'] && $expires ) {
+            update_user_meta( $user_id, self::USER_TRIAL_END_META, absint( $expires ) );
+        } else {
+            delete_user_meta( $user_id, self::USER_TRIAL_END_META );
+        }
 
         $order->update_meta_data( '_wrpa_access_granted', 'yes' );
         $order->save();
@@ -944,6 +1139,8 @@ class WRPA_Access {
             if ( method_exists( __CLASS__, 'log' ) ) {
                 self::log( sprintf( 'WRPA first subscription date recorded for user %d via order #%d at %s.', $user_id, $order_id, gmdate( 'c', $first_subscription_timestamp ) ) );
             }
+
+            do_action( 'wrpa_access_first_granted', $user_id, $order_id, $matched_plan['key'] );
         }
 
         if ( method_exists( __CLASS__, 'log' ) ) {
@@ -1069,6 +1266,112 @@ class WRPA_Access {
         }
 
         return $store;
+    }
+
+    /**
+     * Returns the timezone used by the site.
+     *
+     * @return \DateTimeZone
+     */
+    protected static function get_timezone() {
+        if ( function_exists( 'wp_timezone' ) ) {
+            return wp_timezone();
+        }
+
+        return new \DateTimeZone( wp_timezone_string() );
+    }
+
+    /**
+     * Builds a start/end timestamp range for the provided day.
+     *
+     * @param \DateTimeImmutable $date Target day.
+     * @return array{start:int,end:int}
+     */
+    protected static function get_day_range( \DateTimeImmutable $date ) {
+        $start = $date->setTime( 0, 0, 0 );
+        $end   = $start->modify( '+1 day' )->modify( '-1 second' );
+
+        return [
+            'start' => (int) $start->getTimestamp(),
+            'end'   => (int) $end->getTimestamp(),
+        ];
+    }
+
+    /**
+     * Normalizes a list of user IDs to integers.
+     *
+     * @param mixed $users Raw list of IDs.
+     * @return array<int,int>
+     */
+    protected static function normalize_user_ids( $users ) {
+        if ( empty( $users ) || ! is_array( $users ) ) {
+            return [];
+        }
+
+        $users = array_map( 'absint', $users );
+        $users = array_filter( $users );
+        $users = array_unique( $users );
+
+        return array_values( $users );
+    }
+
+    /**
+     * Performs a user query constrained by a meta key range.
+     *
+     * @param string $meta_key Meta key to inspect.
+     * @param int    $start    Start timestamp (inclusive).
+     * @param int    $end      End timestamp (inclusive).
+     * @param int    $limit    Limit of results.
+     * @return array<int,int>
+     */
+    protected static function query_users_by_meta_range( $meta_key, $start, $end, $limit ) {
+        $start = (int) $start;
+        $end   = (int) $end;
+        $limit = (int) $limit;
+
+        if ( $limit <= 0 || $end < $start || ! function_exists( 'get_users' ) ) {
+            return [];
+        }
+
+        $users = get_users(
+            [
+                'number'     => $limit,
+                'fields'     => 'ids',
+                'meta_query' => [
+                    [
+                        'key'     => $meta_key,
+                        'value'   => [ $start, $end ],
+                        'compare' => 'BETWEEN',
+                        'type'    => 'NUMERIC',
+                    ],
+                ],
+            ]
+        );
+
+        return self::normalize_user_ids( $users );
+    }
+
+    /**
+     * Formats a timestamp as a Y-m-d string honoring the site timezone.
+     *
+     * @param int $timestamp Timestamp to format.
+     * @return string
+     */
+    protected static function format_timestamp_as_date( $timestamp ) {
+        $timestamp = (int) $timestamp;
+
+        if ( $timestamp <= 0 ) {
+            return '';
+        }
+
+        if ( function_exists( 'wp_date' ) ) {
+            return wp_date( 'Y-m-d', $timestamp );
+        }
+
+        $timezone = self::get_timezone();
+        $date     = ( new \DateTimeImmutable( '@' . $timestamp ) )->setTimezone( $timezone );
+
+        return $date->format( 'Y-m-d' );
     }
 
     /**
