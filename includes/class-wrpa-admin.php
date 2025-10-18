@@ -42,6 +42,17 @@ class WRPA_Admin {
         );
 
         // Alt menüler
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Admin' ) ) {
+            add_submenu_page(
+                'wrpa-dashboard',
+                __( 'Email Control Center', 'wrpa' ),
+                __( 'Email', 'wrpa' ),
+                'manage_options',
+                'wrpa-email-templates',
+                [ __NAMESPACE__ . '\\WRPA_Email_Admin', 'render_templates_page' ]
+            );
+        }
+
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Members', 'wrpa' ),
