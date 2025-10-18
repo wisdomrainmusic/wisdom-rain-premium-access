@@ -25,6 +25,9 @@ class WRPA_Access {
 
     const SHORTCODE_RESTRICTED = 'wrpa_restricted';
 
+    const OPTION_TRIAL_DEVICE_HASHES = 'wrpa_trial_device_hashes';
+    const TRIAL_DEVICE_STORE_LIMIT   = 500;
+
     /**
      * Wires the module into WordPress.
      *
@@ -869,6 +872,33 @@ class WRPA_Access {
         $first_subscription_exists  = metadata_exists( 'user', $user_id, $first_subscription_key );
         $first_subscription         = $first_subscription_exists ? get_user_meta( $user_id, $first_subscription_key, true ) : '';
 
+        $trial_identifier = '';
+
+        if ( 'trial' === $matched_plan['key'] ) {
+            $trial_identifier = self::get_trial_identifier_from_order( $order );
+
+            $existing_identifier_record = null;
+
+            if ( $trial_identifier && self::trial_identifier_used_by_other_user( $trial_identifier, $user_id, $existing_identifier_record ) ) {
+                if ( method_exists( __CLASS__, 'log' ) ) {
+                    self::log(
+                        'WRPA trial access denied due to device reuse.',
+                        [
+                            'user_id'    => $user_id,
+                            'order_id'   => $order_id,
+                            'identifier' => $trial_identifier,
+                            'recorded_user' => isset( $existing_identifier_record['user_id'] ) ? (int) $existing_identifier_record['user_id'] : 0,
+                        ]
+                    );
+                }
+
+                $order->update_meta_data( '_wrpa_access_granted', 'trial_denied_device' );
+                $order->save();
+
+                return;
+            }
+        }
+
         if ( 'trial' === $matched_plan['key'] && $first_subscription_exists ) {
             if ( method_exists( __CLASS__, 'log' ) ) {
                 $recorded_on = is_numeric( $first_subscription ) ? gmdate( 'c', (int) $first_subscription ) : (string) $first_subscription;
@@ -903,6 +933,10 @@ class WRPA_Access {
         $order->update_meta_data( '_wrpa_access_granted', 'yes' );
         $order->save();
 
+        if ( 'trial' === $matched_plan['key'] && $trial_identifier ) {
+            self::record_trial_identifier( $trial_identifier, $user_id );
+        }
+
         if ( ! $first_subscription_exists ) {
             $first_subscription_timestamp = current_time( 'timestamp' );
             update_user_meta( $user_id, $first_subscription_key, $first_subscription_timestamp );
@@ -928,6 +962,113 @@ class WRPA_Access {
                 \WRPA\WRPA_Email::send_verification( $user_id );
             }
         }
+    }
+
+    /**
+     * Derives a hashed identifier for the device/network used in a trial order.
+     *
+     * @param \WC_Order $order WooCommerce order instance.
+     * @return string
+     */
+    protected static function get_trial_identifier_from_order( \WC_Order $order ) {
+        $ip_address = method_exists( $order, 'get_customer_ip_address' ) ? (string) $order->get_customer_ip_address() : '';
+        $user_agent = method_exists( $order, 'get_customer_user_agent' ) ? (string) $order->get_customer_user_agent() : '';
+
+        if ( ! $ip_address && isset( $_SERVER['REMOTE_ADDR'] ) ) {
+            $ip_address = (string) ( function_exists( 'wp_unslash' ) ? wp_unslash( $_SERVER['REMOTE_ADDR'] ) : $_SERVER['REMOTE_ADDR'] );
+        }
+
+        if ( ! $user_agent && isset( $_SERVER['HTTP_USER_AGENT'] ) ) {
+            $user_agent = (string) ( function_exists( 'wp_unslash' ) ? wp_unslash( $_SERVER['HTTP_USER_AGENT'] ) : $_SERVER['HTTP_USER_AGENT'] );
+        }
+
+        $raw_identifier = trim( $ip_address . '|' . $user_agent, '|' );
+
+        if ( '' === $raw_identifier ) {
+            return '';
+        }
+
+        if ( function_exists( 'wp_hash' ) ) {
+            return wp_hash( $raw_identifier );
+        }
+
+        return hash( 'sha256', $raw_identifier );
+    }
+
+    /**
+     * Determines whether a trial identifier is already tied to a different user.
+     *
+     * @param string $identifier Device/IP hash.
+     * @param int    $user_id    Current user identifier.
+     * @return bool
+     */
+    protected static function trial_identifier_used_by_other_user( $identifier, $user_id, &$existing_record = null ) {
+        $store = self::get_trial_identifier_store();
+
+        if ( empty( $store[ $identifier ] ) ) {
+            $existing_record = null;
+            return false;
+        }
+
+        $existing_record = $store[ $identifier ];
+        $stored_user     = isset( $existing_record['user_id'] ) ? (int) $existing_record['user_id'] : 0;
+
+        if ( $stored_user && $stored_user !== (int) $user_id ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Records a trial identifier for future abuse prevention checks.
+     *
+     * @param string $identifier Device/IP hash.
+     * @param int    $user_id    User identifier.
+     * @return void
+     */
+    protected static function record_trial_identifier( $identifier, $user_id ) {
+        $store          = self::get_trial_identifier_store();
+        $timestamp      = (int) current_time( 'timestamp' );
+        $store[$identifier] = [
+            'user_id'  => (int) $user_id,
+            'recorded' => $timestamp > 0 ? $timestamp : time(),
+        ];
+
+        if ( count( $store ) > self::TRIAL_DEVICE_STORE_LIMIT ) {
+            uasort(
+                $store,
+                static function ( $a, $b ) {
+                    $a_time = isset( $a['recorded'] ) ? (int) $a['recorded'] : 0;
+                    $b_time = isset( $b['recorded'] ) ? (int) $b['recorded'] : 0;
+
+                    if ( $a_time === $b_time ) {
+                        return 0;
+                    }
+
+                    return ( $a_time < $b_time ) ? -1 : 1;
+                }
+            );
+
+            $store = array_slice( $store, -self::TRIAL_DEVICE_STORE_LIMIT, self::TRIAL_DEVICE_STORE_LIMIT, true );
+        }
+
+        update_option( self::OPTION_TRIAL_DEVICE_HASHES, $store, false );
+    }
+
+    /**
+     * Retrieves the stored trial identifiers indexed by hash.
+     *
+     * @return array
+     */
+    protected static function get_trial_identifier_store() {
+        $store = get_option( self::OPTION_TRIAL_DEVICE_HASHES, [] );
+
+        if ( ! is_array( $store ) ) {
+            return [];
+        }
+
+        return $store;
     }
 
     /**
