@@ -19,8 +19,9 @@ class WRPA_Access {
     const META_REQUIRED_PLAN       = '_wrpa_required_plan';
     const META_CUSTOM_MESSAGE      = '_wrpa_restriction_message';
 
-    const USER_PLAN_META   = '_wrpa_membership_plan';
-    const USER_EXPIRY_META = '_wrpa_membership_expiry';
+    const USER_PLAN_META           = '_wrpa_membership_plan';
+    const USER_EXPIRY_META         = '_wrpa_membership_expiry';
+    const USER_ACCESS_EXPIRES_META = '_wrpa_access_expires';
 
     const SHORTCODE_RESTRICTED = 'wrpa_restricted';
 
@@ -290,6 +291,16 @@ class WRPA_Access {
             return;
         }
 
+        if ( ! is_user_logged_in() || self::subscription_has_expired( get_current_user_id() ) ) {
+            $destination  = home_url( '/subscribe/' );
+            $current_path = isset( $_SERVER['REQUEST_URI'] ) ? wp_parse_url( wp_unslash( $_SERVER['REQUEST_URI'] ), PHP_URL_PATH ) : '';
+
+            if ( untrailingslashit( $current_path ) !== '/subscribe' ) {
+                wp_safe_redirect( $destination );
+                exit;
+            }
+        }
+
         self::maybe_redirect_restricted_content();
     }
 
@@ -413,7 +424,21 @@ class WRPA_Access {
             return true;
         }
 
-        return self::user_has_access( $post_id, $user_id );
+        $checked_user_id = $user_id;
+
+        if ( null === $checked_user_id ) {
+            $checked_user_id = get_current_user_id();
+        }
+
+        if ( ! $checked_user_id ) {
+            return false;
+        }
+
+        if ( self::subscription_has_expired( $checked_user_id ) ) {
+            return false;
+        }
+
+        return self::user_has_access( $post_id, $checked_user_id );
     }
 
     /**
@@ -485,6 +510,32 @@ class WRPA_Access {
         }
 
         return time() <= $expiry;
+    }
+
+    /**
+     * Determines whether the user's subscription has expired based on the access meta.
+     *
+     * @param int $user_id User identifier.
+     * @return bool
+     */
+    protected static function subscription_has_expired( $user_id ) {
+        if ( ! $user_id ) {
+            return true;
+        }
+
+        $expiry = get_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, true );
+
+        if ( '' === $expiry || null === $expiry ) {
+            return false;
+        }
+
+        $expiry = (int) $expiry;
+
+        if ( $expiry <= 0 ) {
+            return false;
+        }
+
+        return time() > $expiry;
     }
 
     /**
