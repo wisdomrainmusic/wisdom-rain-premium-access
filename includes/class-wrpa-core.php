@@ -66,6 +66,7 @@ class WRPA_Core {
     private static function load_dependencies() {
         require_once WRPA_PATH . 'includes/class-wrpa-access.php';
         require_once WRPA_PATH . 'includes/class-wrpa-admin.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-email-log.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-cron.php';
@@ -109,6 +110,8 @@ class WRPA_Core {
     public static function activate() {
         self::define_constants();
         self::load_dependencies();
+
+        WRPA_Email_Log::install_table();
 
         do_action( 'wrpa/activate' );
     }
