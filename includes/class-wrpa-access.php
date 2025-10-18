@@ -23,6 +23,7 @@ class WRPA_Access {
     const USER_EXPIRY_META         = '_wrpa_membership_expiry';
     const USER_ACCESS_EXPIRES_META = '_wrpa_access_expires';
     const USER_TRIAL_END_META      = '_wrpa_trial_end';
+    const USER_TRIAL_FINGERPRINT_META = 'wrpa_trial_fingerprint';
 
     const SHORTCODE_RESTRICTED = 'wrpa_restricted';
 
@@ -1059,24 +1060,51 @@ class WRPA_Access {
         $first_subscription_exists  = metadata_exists( 'user', $user_id, $first_subscription_key );
         $first_subscription         = $first_subscription_exists ? get_user_meta( $user_id, $first_subscription_key, true ) : '';
 
-        $trial_identifier = '';
+        $trial_identifier      = '';
+        $trial_identifier_data = [];
+        $trial_ip_hash         = '';
+        $trial_fingerprint     = '';
 
         if ( 'trial' === $matched_plan['key'] ) {
-            $trial_identifier = self::get_trial_identifier_from_order( $order );
+            $trial_identifier_data = self::get_trial_identifier_from_order( $order );
+            $trial_identifier      = isset( $trial_identifier_data['identifier'] ) ? (string) $trial_identifier_data['identifier'] : '';
+            $trial_ip_hash         = isset( $trial_identifier_data['ip_hash'] ) ? (string) $trial_identifier_data['ip_hash'] : '';
+            $trial_fingerprint     = isset( $trial_identifier_data['fingerprint'] ) ? (string) $trial_identifier_data['fingerprint'] : '';
 
             $existing_identifier_record = null;
 
-            if ( $trial_identifier && self::trial_identifier_used_by_other_user( $trial_identifier, $user_id, $existing_identifier_record ) ) {
+            if ( ( $trial_identifier || $trial_ip_hash || $trial_fingerprint )
+                && self::trial_identifier_used_by_other_user( $trial_identifier, $user_id, $existing_identifier_record, $trial_ip_hash, $trial_fingerprint )
+            ) {
+                if ( is_array( $existing_identifier_record ) && ! isset( $existing_identifier_record['identifier'] ) && $trial_identifier ) {
+                    $existing_identifier_record['identifier'] = $trial_identifier;
+                }
+
                 if ( method_exists( __CLASS__, 'log' ) ) {
-                    self::log(
-                        'WRPA trial access denied due to device reuse.',
-                        [
-                            'user_id'    => $user_id,
-                            'order_id'   => $order_id,
-                            'identifier' => $trial_identifier,
-                            'recorded_user' => isset( $existing_identifier_record['user_id'] ) ? (int) $existing_identifier_record['user_id'] : 0,
-                        ]
-                    );
+                    $log_context = [
+                        'user_id'    => $user_id,
+                        'order_id'   => $order_id,
+                        'identifier' => $trial_identifier,
+                        'recorded_user' => isset( $existing_identifier_record['user_id'] ) ? (int) $existing_identifier_record['user_id'] : 0,
+                    ];
+
+                    if ( $trial_ip_hash ) {
+                        $log_context['ip_hash'] = $trial_ip_hash;
+                    }
+
+                    if ( $trial_fingerprint ) {
+                        $log_context['fingerprint'] = $trial_fingerprint;
+                    }
+
+                    if ( isset( $existing_identifier_record['identifier'] ) ) {
+                        $log_context['matched_identifier'] = (string) $existing_identifier_record['identifier'];
+                    }
+
+                    if ( isset( $existing_identifier_record['match_type'] ) ) {
+                        $log_context['match_type'] = (string) $existing_identifier_record['match_type'];
+                    }
+
+                    self::log( 'WRPA trial access denied due to device reuse.', $log_context );
                 }
 
                 $order->update_meta_data( '_wrpa_access_granted', 'trial_denied_device' );
@@ -1125,11 +1153,17 @@ class WRPA_Access {
             delete_user_meta( $user_id, self::USER_TRIAL_END_META );
         }
 
+        if ( 'trial' === $matched_plan['key'] && $trial_fingerprint ) {
+            update_user_meta( $user_id, self::USER_TRIAL_FINGERPRINT_META, $trial_fingerprint );
+        } else {
+            delete_user_meta( $user_id, self::USER_TRIAL_FINGERPRINT_META );
+        }
+
         $order->update_meta_data( '_wrpa_access_granted', 'yes' );
         $order->save();
 
         if ( 'trial' === $matched_plan['key'] && $trial_identifier ) {
-            self::record_trial_identifier( $trial_identifier, $user_id );
+            self::record_trial_identifier( $trial_identifier, $user_id, $trial_ip_hash, $trial_fingerprint );
         }
 
         if ( ! $first_subscription_exists ) {
@@ -1162,10 +1196,10 @@ class WRPA_Access {
     }
 
     /**
-     * Derives a hashed identifier for the device/network used in a trial order.
+     * Collects network characteristics for a trial order and builds hashes for deduplication.
      *
      * @param \WC_Order $order WooCommerce order instance.
-     * @return string
+     * @return array{identifier:string,ip:string,ip_hash:string,user_agent:string,fingerprint:string}
      */
     protected static function get_trial_identifier_from_order( \WC_Order $order ) {
         $ip_address = method_exists( $order, 'get_customer_ip_address' ) ? (string) $order->get_customer_ip_address() : '';
@@ -1181,37 +1215,99 @@ class WRPA_Access {
 
         $raw_identifier = trim( $ip_address . '|' . $user_agent, '|' );
 
-        if ( '' === $raw_identifier ) {
-            return '';
-        }
-
         if ( function_exists( 'wp_hash' ) ) {
-            return wp_hash( $raw_identifier );
+            $identifier = $raw_identifier !== '' ? wp_hash( $raw_identifier ) : '';
+        } else {
+            $identifier = $raw_identifier !== '' ? hash( 'sha256', $raw_identifier ) : '';
         }
 
-        return hash( 'sha256', $raw_identifier );
+        $ip_hash = '' !== $ip_address ? md5( $ip_address ) : '';
+
+        $fingerprint_source = '';
+        if ( '' !== $user_agent || '' !== $ip_address ) {
+            $fingerprint_source = $user_agent . '|' . $ip_address;
+        }
+
+        $fingerprint = '' !== $fingerprint_source ? md5( $fingerprint_source ) : '';
+
+        return [
+            'identifier'  => (string) $identifier,
+            'ip'          => (string) $ip_address,
+            'ip_hash'     => (string) $ip_hash,
+            'user_agent'  => (string) $user_agent,
+            'fingerprint' => (string) $fingerprint,
+        ];
     }
 
     /**
      * Determines whether a trial identifier is already tied to a different user.
      *
-     * @param string $identifier Device/IP hash.
-     * @param int    $user_id    Current user identifier.
+     * @param string      $identifier Device/IP hash.
+     * @param int         $user_id    Current user identifier.
+     * @param array|null  $existing_record Populated with the conflicting record when a match is found.
+     * @param string      $ip_hash    Hash of the remote IP address.
+     * @param string      $fingerprint Combined fingerprint hash (user agent + IP).
      * @return bool
      */
-    protected static function trial_identifier_used_by_other_user( $identifier, $user_id, &$existing_record = null ) {
+    protected static function trial_identifier_used_by_other_user( $identifier, $user_id, &$existing_record = null, $ip_hash = '', $fingerprint = '' ) {
         $store = self::get_trial_identifier_store();
 
-        if ( empty( $store[ $identifier ] ) ) {
+        $existing_record = null;
+        $user_id         = (int) $user_id;
+
+        if ( $identifier && ! empty( $store[ $identifier ] ) ) {
+            $existing_record = $store[ $identifier ];
+            $stored_user     = isset( $existing_record['user_id'] ) ? (int) $existing_record['user_id'] : 0;
+
+            if ( $stored_user && $stored_user !== $user_id ) {
+                $existing_record['identifier'] = $identifier;
+                $existing_record['match_type'] = 'identifier';
+
+                return true;
+            }
+
+            // Safe-guard to continue checking other signals when the identifier belongs to the same user.
             $existing_record = null;
-            return false;
         }
 
-        $existing_record = $store[ $identifier ];
-        $stored_user     = isset( $existing_record['user_id'] ) ? (int) $existing_record['user_id'] : 0;
+        if ( $ip_hash ) {
+            foreach ( $store as $store_identifier => $record ) {
+                $stored_ip_hash = isset( $record['ip_hash'] ) ? (string) $record['ip_hash'] : '';
 
-        if ( $stored_user && $stored_user !== (int) $user_id ) {
-            return true;
+                if ( '' === $stored_ip_hash || $stored_ip_hash !== (string) $ip_hash ) {
+                    continue;
+                }
+
+                $stored_user = isset( $record['user_id'] ) ? (int) $record['user_id'] : 0;
+
+                if ( $stored_user && $stored_user !== $user_id ) {
+                    $existing_record              = $record;
+                    $existing_record['identifier'] = $store_identifier;
+                    $existing_record['match_type'] = 'ip';
+
+                    return true;
+                }
+            }
+        }
+
+        if ( $fingerprint ) {
+            foreach ( $store as $store_identifier => $record ) {
+                $stored_fingerprint = isset( $record['fingerprint'] ) ? (string) $record['fingerprint'] : '';
+
+                if ( '' === $stored_fingerprint || $stored_fingerprint !== (string) $fingerprint ) {
+                    continue;
+                }
+
+                $stored_user = isset( $record['user_id'] ) ? (int) $record['user_id'] : 0;
+
+                if ( $stored_user && $stored_user !== $user_id ) {
+                    $existing_record              = $record;
+                    $existing_record['identifier'] = $store_identifier;
+                    $existing_record['match_type'] = 'fingerprint';
+
+                    return true;
+                }
+            }
         }
 
         return false;
@@ -1222,15 +1318,25 @@ class WRPA_Access {
      *
      * @param string $identifier Device/IP hash.
      * @param int    $user_id    User identifier.
+     * @param string $ip_hash    Hash of the remote IP address.
+     * @param string $fingerprint Combined fingerprint hash (user agent + IP).
      * @return void
      */
-    protected static function record_trial_identifier( $identifier, $user_id ) {
+    protected static function record_trial_identifier( $identifier, $user_id, $ip_hash = '', $fingerprint = '' ) {
         $store          = self::get_trial_identifier_store();
         $timestamp      = (int) current_time( 'timestamp' );
         $store[$identifier] = [
             'user_id'  => (int) $user_id,
             'recorded' => $timestamp > 0 ? $timestamp : time(),
         ];
+
+        if ( $ip_hash ) {
+            $store[$identifier]['ip_hash'] = (string) $ip_hash;
+        }
+
+        if ( $fingerprint ) {
+            $store[$identifier]['fingerprint'] = (string) $fingerprint;
+        }
 
         if ( count( $store ) > self::TRIAL_DEVICE_STORE_LIMIT ) {
             uasort(
