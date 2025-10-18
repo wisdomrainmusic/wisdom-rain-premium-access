@@ -56,35 +56,11 @@ class WRPA_Core {
      *
      * @return void
      */
-    protected static function load_dependencies() {
-        $modules = array(
-            'includes/class-wrpa-access.php',
-            'includes/class-wrpa-admin.php',
-            'includes/class-wrpa-email.php',
-            'includes/class-wrpa-cron.php',
-        );
-
-        foreach ( $modules as $module ) {
-            $path = WRPA_PATH . $module;
-
-            if ( file_exists( $path ) ) {
-                require_once $path;
-            }
-        }
-
-        $autoload_modules = array(
-            'WRPA_Access',
-            'WRPA_Email',
-            'WRPA_Cron',
-        );
-
-        foreach ( $autoload_modules as $module_class ) {
-            $class = __NAMESPACE__ . '\\' . $module_class;
-
-            if ( class_exists( $class ) && method_exists( $class, 'init' ) ) {
-                call_user_func( array( $class, 'init' ) );
-            }
-        }
+    private static function load_dependencies() {
+        require_once WRPA_PATH . 'includes/class-wrpa-access.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-admin.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-email.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-cron.php';
     }
 
     /**
