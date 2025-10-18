@@ -39,13 +39,11 @@ class WRPA_Core {
         }
 
         if ( ! defined( 'WRPA_PATH' ) ) {
-            $plugin_path = rtrim( dirname( __DIR__ ), '/\\' ) . '/';
-            define( 'WRPA_PATH', $plugin_path );
+            define( 'WRPA_PATH', plugin_dir_path( dirname( __FILE__ ) ) );
         }
 
         if ( ! defined( 'WRPA_URL' ) ) {
-            $plugin_file = WRPA_PATH . 'wisdom-rain-premium-access.php';
-            define( 'WRPA_URL', plugin_dir_url( $plugin_file ) );
+            define( 'WRPA_URL', plugin_dir_url( dirname( __FILE__ ) ) );
         }
 
         if ( ! defined( 'WRPA_META_EXPIRY' ) ) {
