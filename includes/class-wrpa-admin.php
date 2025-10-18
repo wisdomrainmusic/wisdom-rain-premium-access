@@ -51,6 +51,8 @@ class WRPA_Admin {
                 'wrpa-email-templates',
                 [ __NAMESPACE__ . '\\WRPA_Email_Admin', 'render_templates_page' ]
             );
+
+            WRPA_Email_Admin::register_hidden_submenus();
         }
 
         add_submenu_page(
