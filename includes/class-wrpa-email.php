@@ -255,13 +255,22 @@ class WRPA_Email {
      */
     public static function replace_placeholders( string $html, array $vars ) : string {
         $defaults = [
-            'site_name'               => get_bloginfo( 'name' ),
-            'site_url'                => home_url( '/' ),
-            'dashboard_url'           => home_url( '/my-account/' ),
-            'subscribe_url'           => home_url( '/subscribe/' ),
-            'manage_subscription_url' => home_url( '/account/subscriptions/' ),
+            'site_name' => get_bloginfo( 'name' ),
+            'site_url'  => home_url( '/' ),
         ];
-        $vars = array_merge( $defaults, $vars );
+
+        $url_defaults = [
+            'subscribe_url'           => home_url( '/subscribe/' ),
+            'dashboard_url'           => home_url( '/dashboard/' ),
+            'manage_subscription_url' => home_url( '/account/subscriptions/' ),
+            'verify_email_url'        => home_url( '/verify-email/' ),
+        ];
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $url_defaults = array_merge( $url_defaults, WRPA_Core::urls() );
+        }
+
+        $vars = array_merge( $defaults, $url_defaults, $vars );
 
         // Build search/replace arrays for simple {key} tokens.
         $search  = [];
@@ -288,30 +297,59 @@ class WRPA_Email {
             'user_first_name' => $first ?: ( $user ? $user->display_name : '' ),
         ];
 
-        // Optional integrations (stubs): plan/expiry/trial could come from WRPA_Access.
-        if ( method_exists( '\\WRPA\\WRPA_Access', 'get_user_plan' ) ) {
-            $plan = WRPA_Access::get_user_plan( $user_id );
-            if ( is_array( $plan ) ) {
-                $context['plan_name']     = $plan['name']  ?? '';
-                $context['plan_price']    = $plan['price'] ?? '';
-                $context['plan_interval'] = $plan['interval'] ?? '';
+        $access_defaults = [
+            'plan_name'          => '',
+            'plan_price'         => '',
+            'plan_interval'      => '',
+            'expire_date'        => '',
+            'expire_date_human'  => '',
+            'trial_end'          => '',
+        ];
+
+        $context = array_merge( $context, $access_defaults );
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Access' ) ) {
+            if ( method_exists( WRPA_Access::class, 'get_user_plan' ) ) {
+                $plan = WRPA_Access::get_user_plan( $user_id );
+                if ( is_array( $plan ) ) {
+                    $context['plan_name']     = $plan['name'] ?? $context['plan_name'];
+                    $context['plan_price']    = $plan['price'] ?? $context['plan_price'];
+                    $context['plan_interval'] = $plan['interval'] ?? $context['plan_interval'];
+                }
             }
-        }
-        if ( method_exists( '\\WRPA\\WRPA_Access', 'get_expire_date' ) ) {
-            $exp = WRPA_Access::get_expire_date( $user_id ); // Y-m-d expected
-            if ( $exp ) {
-                $context['expire_date'] = $exp;
-                $context['expire_date_human'] = date_i18n( get_option( 'date_format' ), strtotime( $exp ) );
+
+            if ( method_exists( WRPA_Access::class, 'get_expire_date' ) ) {
+                $exp = WRPA_Access::get_expire_date( $user_id );
+                if ( $exp ) {
+                    $context['expire_date'] = $exp;
+
+                    $timestamp = strtotime( $exp );
+                    if ( $timestamp ) {
+                        $context['expire_date_human'] = date_i18n( get_option( 'date_format' ), $timestamp );
+                    }
+                }
             }
-        }
-        if ( method_exists( '\\WRPA\\WRPA_Access', 'get_trial_end' ) ) {
-            $trial = WRPA_Access::get_trial_end( $user_id );
-            if ( $trial ) {
-                $context['trial_end'] = $trial;
+
+            if ( method_exists( WRPA_Access::class, 'get_trial_end' ) ) {
+                $trial = WRPA_Access::get_trial_end( $user_id );
+                if ( $trial ) {
+                    $context['trial_end'] = $trial;
+                }
             }
         }
 
-        return $context;
+        $url_defaults = [
+            'subscribe_url'           => home_url( '/subscribe/' ),
+            'dashboard_url'           => home_url( '/dashboard/' ),
+            'manage_subscription_url' => home_url( '/account/subscriptions/' ),
+            'verify_email_url'        => home_url( '/verify-email/' ),
+        ];
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $url_defaults = array_merge( $url_defaults, WRPA_Core::urls() );
+        }
+
+        return array_merge( $context, $url_defaults );
     }
 
     /**

@@ -103,6 +103,20 @@ class WRPA_Core {
     }
 
     /**
+     * Provides commonly used WRPA URLs for templates and modules.
+     *
+     * @return array
+     */
+    public static function urls() : array {
+        return [
+            'subscribe_url'           => home_url( '/subscribe/' ),
+            'dashboard_url'           => home_url( '/dashboard/' ),
+            'manage_subscription_url' => home_url( '/account/subscriptions/' ),
+            'verify_email_url'        => home_url( '/verify-email/' ),
+        ];
+    }
+
+    /**
      * Executes on plugin activation.
      *
      * @return void
