@@ -101,6 +101,35 @@ class WRPA_Admin {
         self::render_nav_tabs( 'wrpa-members' );
         echo '<p>' . esc_html__( 'Aşağıdaki tablo üyelerinizin temel bilgilerini görüntüler.', 'wrpa' ) . '</p>';
 
+        $filters = [
+            'all'     => __( 'All', 'wrpa' ),
+            'active'  => __( 'Active', 'wrpa' ),
+            'expired' => __( 'Expired', 'wrpa' ),
+            'trial'   => __( 'Trial', 'wrpa' ),
+        ];
+
+        echo '<div class="wrpa-members-toolbar" style="display:flex; justify-content:space-between; align-items:center; margin:20px 0;">';
+        echo '<div class="wrpa-members-filters">';
+
+        $active_filter = 'all';
+
+        foreach ( $filters as $filter_key => $label ) {
+            $button_classes = [ 'button' ];
+            $button_classes[] = ( $filter_key === $active_filter ) ? 'button-primary' : 'button-secondary';
+
+            printf(
+                '<a href="#" class="%1$s" style="margin-right:6px;">%2$s</a>',
+                esc_attr( implode( ' ', $button_classes ) ),
+                esc_html( $label )
+            );
+        }
+
+        echo '</div>';
+        echo '<div class="wrpa-members-actions">';
+        echo '<a href="#" class="button button-secondary" style="margin-left:12px;">' . esc_html__( 'CSV Export', 'wrpa' ) . '</a>';
+        echo '</div>';
+        echo '</div>';
+
         echo '<table class="wp-list-table widefat striped">';
         echo '<thead>';
         echo '<tr>';
