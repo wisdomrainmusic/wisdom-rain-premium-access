@@ -30,6 +30,8 @@ class WRPA_Core {
         \WRPA\WRPA_Access::init();
         \WRPA\WRPA_Admin::init();
         \WRPA\WRPA_Email::init();
+        \WRPA\WRPA_Email_Admin::init();
+        \WRPA\WRPA_Email_Cron::init();
         \WRPA\WRPA_Cron::init();
         self::init_hooks();
     }
@@ -66,6 +68,8 @@ class WRPA_Core {
         require_once WRPA_PATH . 'includes/class-wrpa-access.php';
         require_once WRPA_PATH . 'includes/class-wrpa-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-email-admin.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-email-cron.php';
         require_once WRPA_PATH . 'includes/class-wrpa-cron.php';
     }
 

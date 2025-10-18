@@ -38,15 +38,6 @@ class WRPA_Admin {
 
         add_submenu_page(
             'wrpa-dashboard',
-            'Email Templates',
-            'Email Templates',
-            'manage_options',
-            'wrpa-emails',
-            [ __CLASS__, 'emails_page' ]
-        );
-
-        add_submenu_page(
-            'wrpa-dashboard',
             'Settings',
             'Settings',
             'manage_options',
@@ -62,7 +53,7 @@ class WRPA_Admin {
      *
      * @return void
      */
-    protected static function render_nav_tabs( $active_slug ) {
+    public static function render_nav_tabs( $active_slug ) {
         $tabs = [
             'wrpa-members' => __( 'Members', 'wrpa' ),
             'wrpa-emails'  => __( 'Email Templates', 'wrpa' ),
