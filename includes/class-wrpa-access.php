@@ -37,6 +37,8 @@ class WRPA_Access {
         add_filter( 'the_content', [ __CLASS__, 'filter_restricted_content' ] );
         add_shortcode( self::SHORTCODE_RESTRICTED, [ __CLASS__, 'render_restricted_shortcode' ] );
         add_action( 'template_redirect', [ __CLASS__, 'handle_access' ], 5 );
+        add_action( 'woocommerce_order_status_completed', [ __CLASS__, 'grant_access' ] );
+        add_action( 'woocommerce_payment_complete', [ __CLASS__, 'grant_access' ] );
     }
 
     /**
@@ -637,5 +639,137 @@ class WRPA_Access {
         }
 
         return array_values( array_unique( $parts ) );
+    }
+
+    /**
+     * Grants or extends user access based on a WooCommerce order.
+     *
+     * @param int $order_id WooCommerce order identifier.
+     * @return void
+     */
+    public static function grant_access( $order_id ) {
+        if ( empty( $order_id ) || ! function_exists( 'wc_get_order' ) ) {
+            return;
+        }
+
+        $order = wc_get_order( $order_id );
+
+        if ( ! $order instanceof \WC_Order ) {
+            return;
+        }
+
+        if ( 'yes' === $order->get_meta( '_wrpa_access_granted' ) ) {
+            return;
+        }
+
+        $user_id = $order->get_user_id();
+
+        if ( ! $user_id ) {
+            $billing_email = $order->get_billing_email();
+
+            if ( $billing_email ) {
+                $user = get_user_by( 'email', $billing_email );
+                if ( $user ) {
+                    $user_id = (int) $user->ID;
+                }
+            }
+        }
+
+        if ( ! $user_id ) {
+            if ( method_exists( __CLASS__, 'log' ) ) {
+                self::log( sprintf( 'WRPA access not granted for order #%d — user could not be resolved.', $order_id ) );
+            }
+            return;
+        }
+
+        $product_ids = [];
+
+        foreach ( $order->get_items( 'line_item' ) as $item ) {
+            if ( ! $item instanceof \WC_Order_Item_Product ) {
+                continue;
+            }
+
+            $product_id = (int) $item->get_product_id();
+            $variation_id = (int) $item->get_variation_id();
+
+            if ( $product_id ) {
+                $product_ids[] = $product_id;
+            }
+
+            if ( $variation_id ) {
+                $product_ids[] = $variation_id;
+            }
+        }
+
+        if ( empty( $product_ids ) ) {
+            if ( method_exists( __CLASS__, 'log' ) ) {
+                self::log( sprintf( 'WRPA access not granted for order #%d — no purchasable items found.', $order_id ) );
+            }
+            return;
+        }
+
+        $plans = [
+            'trial'   => [
+                'product_id' => absint( get_option( 'wrpa_plan_trial_id', 0 ) ),
+                'days'       => absint( get_option( 'wrpa_trial_days', 0 ) ),
+            ],
+            'monthly' => [
+                'product_id' => absint( get_option( 'wrpa_plan_monthly_id', 0 ) ),
+                'days'       => absint( get_option( 'wrpa_monthly_days', 0 ) ),
+            ],
+            'yearly'  => [
+                'product_id' => absint( get_option( 'wrpa_plan_yearly_id', 0 ) ),
+                'days'       => absint( get_option( 'wrpa_yearly_days', 0 ) ),
+            ],
+        ];
+
+        $matched_plan = null;
+
+        foreach ( $plans as $plan_key => $plan_config ) {
+            if ( empty( $plan_config['product_id'] ) ) {
+                continue;
+            }
+
+            if ( ! in_array( $plan_config['product_id'], $product_ids, true ) ) {
+                continue;
+            }
+
+            if ( null === $matched_plan || $plan_config['days'] > $matched_plan['days'] ) {
+                $matched_plan = [
+                    'key'        => $plan_key,
+                    'product_id' => $plan_config['product_id'],
+                    'days'       => $plan_config['days'],
+                ];
+            }
+        }
+
+        if ( null === $matched_plan ) {
+            if ( method_exists( __CLASS__, 'log' ) ) {
+                self::log( sprintf( 'WRPA access not granted for order #%d — no matching plan for products: %s.', $order_id, implode( ',', $product_ids ) ) );
+            }
+            return;
+        }
+
+        $duration_days = max( 0, (int) $matched_plan['days'] );
+
+        $now            = time();
+        $current_expiry = (int) get_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, true );
+        $base_timestamp  = ( $current_expiry > $now ) ? $current_expiry : $now;
+
+        $expires = $duration_days > 0 ? $base_timestamp + ( $duration_days * DAY_IN_SECONDS ) : 0;
+
+        update_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, $expires );
+
+        $first_subscription = get_user_meta( $user_id, '_wrpa_first_subscription_date', true );
+        if ( '' === $first_subscription ) {
+            update_user_meta( $user_id, '_wrpa_first_subscription_date', current_time( 'timestamp' ) );
+        }
+
+        $order->update_meta_data( '_wrpa_access_granted', 'yes' );
+        $order->save();
+
+        if ( method_exists( __CLASS__, 'log' ) ) {
+            self::log( sprintf( 'WRPA access granted for user %d via order #%d (%s plan). New expiry: %s.', $user_id, $order_id, $matched_plan['key'], $expires ? gmdate( 'c', $expires ) : 'never' ) );
+        }
     }
 }
