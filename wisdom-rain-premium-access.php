@@ -15,28 +15,28 @@ if ( ! defined( 'ABSPATH' ) ) {
     exit; // Doğrudan erişim engellendi.
 }
 
-// === Sabitler === //
-define( 'WRPA_VERSION', '2.0.0' );
-define( 'WRPA_PATH', plugin_dir_path( __FILE__ ) );
-define( 'WRPA_URL', plugin_dir_url( __FILE__ ) );
+// === Eklenti Dosya Sabiti === //
+if ( ! defined( 'WRPA_PLUGIN_FILE' ) ) {
+    define( 'WRPA_PLUGIN_FILE', __FILE__ );
+}
 
 // === Dosyaları Dahil Et (ileride eklenecek modüller) === //
 $includes = array(
-    'includes/class-wrpa-core.php',
-    'includes/class-wrpa-admin.php',
-    'includes/class-wrpa-access.php',
-    'includes/class-wrpa-email.php',
-    'includes/class-wrpa-cron.php'
+    __DIR__ . '/includes/class-wrpa-core.php',
 );
 
-foreach ( $includes as $file ) {
-    $path = WRPA_PATH . $file;
+foreach ( $includes as $path ) {
     if ( file_exists( $path ) ) {
         require_once $path;
     }
 }
 
 // === Ana Başlatma === //
-if ( class_exists( 'WRPA\\WRPA_Core' ) ) {
-    add_action( 'plugins_loaded', array( 'WRPA\\WRPA_Core', 'init' ) );
+$core_class = 'WRPA\\WRPA_Core';
+
+if ( class_exists( $core_class ) ) {
+    call_user_func( array( $core_class, 'init' ) );
+
+    register_activation_hook( WRPA_PLUGIN_FILE, array( $core_class, 'activate' ) );
+    register_deactivation_hook( WRPA_PLUGIN_FILE, array( $core_class, 'deactivate' ) );
 }
