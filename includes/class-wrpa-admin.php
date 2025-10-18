@@ -17,8 +17,8 @@ class WRPA_Admin {
     public static function register_menu() {
         // Ana menü
         add_menu_page(
-            'WRPA Dashboard',
-            'WRPA',
+            __( 'WRPA Dashboard', 'wrpa' ),
+            __( 'WRPA', 'wrpa' ),
             'manage_options',
             'wrpa-dashboard',
             [ __CLASS__, 'dashboard_page' ],
@@ -29,8 +29,8 @@ class WRPA_Admin {
         // Alt menüler
         add_submenu_page(
             'wrpa-dashboard',
-            'Members',
-            'Members',
+            __( 'Members', 'wrpa' ),
+            __( 'Members', 'wrpa' ),
             'manage_options',
             'wrpa-members',
             [ __CLASS__, 'members_page' ]
@@ -38,8 +38,8 @@ class WRPA_Admin {
 
         add_submenu_page(
             'wrpa-dashboard',
-            'Settings',
-            'Settings',
+            __( 'Settings', 'wrpa' ),
+            __( 'Settings', 'wrpa' ),
             'manage_options',
             'wrpa-settings',
             [ __CLASS__, 'settings_page' ]
@@ -83,7 +83,7 @@ class WRPA_Admin {
 
     // Sayfa içerikleri
     public static function dashboard_page() {
-        echo '<div class="wrap"><h1>WRPA Dashboard</h1><p>Yönetim paneline hoş geldiniz.</p></div>';
+        echo '<div class="wrap"><h1>' . esc_html__( 'WRPA Dashboard', 'wrpa' ) . '</h1><p>' . esc_html__( 'Yönetim paneline hoş geldiniz.', 'wrpa' ) . '</p></div>';
     }
 
     public static function members_page() {

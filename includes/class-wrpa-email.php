@@ -111,6 +111,10 @@ class WRPA_Email {
                 ]
             );
 
+            if ( apply_filters( 'wrpa_enable_email_logging', false ) ) {
+                WRPA_Email_Log::log( $user_id, $slug, $to, $subject, 'failed', $error, [ 'vars' => $vars ] );
+            }
+
             return false;
         }
 
@@ -140,6 +144,10 @@ class WRPA_Email {
                 ]
             );
 
+            if ( apply_filters( 'wrpa_enable_email_logging', false ) ) {
+                WRPA_Email_Log::log( $user_id, $slug, $to, $subject, 'sent', '', [ 'vars' => $vars ] );
+            }
+
             return true;
         }
 
@@ -166,6 +174,10 @@ class WRPA_Email {
                 'error'     => $error,
             ]
         );
+
+        if ( apply_filters( 'wrpa_enable_email_logging', false ) ) {
+            WRPA_Email_Log::log( $user_id, $slug, $to, $subject, 'failed', $error, [ 'vars' => $vars ] );
+        }
         return false;
     }
 
@@ -250,8 +262,10 @@ class WRPA_Email {
      */
     public static function replace_placeholders( string $html, array $vars ) : string {
         $defaults = [
-            'site_name' => get_bloginfo( 'name' ),
-            'site_url'  => home_url( '/' ),
+            'site_name'       => get_bloginfo( 'name' ),
+            'site_url'        => home_url( '/' ),
+            'support_email'   => 'support@wisdomrainbookmusic.com',
+            'unsubscribe_url' => home_url( '/account/email-preferences/' ),
         ];
 
         $user_id_for_url = isset( $vars['user_id'] ) ? absint( $vars['user_id'] ) : 0;
