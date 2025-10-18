@@ -34,15 +34,14 @@ class WRPA_Email_Admin {
      * Bootstraps admin hooks for managing email templates.
      */
     public static function init() : void {
-        add_action( 'admin_menu', [ __CLASS__, 'register_submenu' ], 20 );
         add_action( 'admin_menu', [ __CLASS__, 'hide_secondary_submenus' ], 99 );
         add_action( 'admin_enqueue_scripts', [ __CLASS__, 'enqueue_assets' ] );
     }
 
     /**
-     * Registers the secondary Email admin sub pages under the WRPA dashboard.
+     * Registers hidden Email admin sub pages under the WRPA dashboard.
      */
-    public static function register_submenu() : void {
+    public static function register_hidden_submenus() : void {
         add_submenu_page(
             'wrpa-dashboard',
             __( 'Email ▸ Edit Template', 'wrpa' ),
