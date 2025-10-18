@@ -827,4 +827,90 @@ class WRPA_Access {
             self::log( sprintf( 'WRPA access %s for user %d via order #%d (%s plan). Previous expiry: %s. New expiry: %s.', $action, $user_id, $order_id, $matched_plan['key'], $previous_label, $new_label ) );
         }
     }
+
+    /**
+     * Records a debug log entry for WRPA operations.
+     *
+     * Writes to the uploads directory when possible and falls back to the PHP
+     * error log as a safety net. Logging can be disabled entirely by defining
+     * the WRPA_DISABLE_LOGS constant with a truthy value.
+     *
+     * @param mixed $message Message to record.
+     * @param array $context Optional contextual data to append.
+     * @return void
+     */
+    public static function log( $message, array $context = [] ) {
+        if ( defined( 'WRPA_DISABLE_LOGS' ) && WRPA_DISABLE_LOGS ) {
+            return;
+        }
+
+        $json_flags = 0;
+
+        if ( defined( 'JSON_UNESCAPED_SLASHES' ) ) {
+            $json_flags |= JSON_UNESCAPED_SLASHES;
+        }
+
+        if ( defined( 'JSON_UNESCAPED_UNICODE' ) ) {
+            $json_flags |= JSON_UNESCAPED_UNICODE;
+        }
+
+        if ( ! is_scalar( $message ) ) {
+            if ( function_exists( 'wp_json_encode' ) ) {
+                $encoded = wp_json_encode( $message, $json_flags );
+            } else {
+                $encoded = json_encode( $message );
+            }
+
+            $message = false !== $encoded ? $encoded : print_r( $message, true );
+        } else {
+            $message = (string) $message;
+        }
+
+        if ( ! empty( $context ) ) {
+            if ( function_exists( 'wp_json_encode' ) ) {
+                $context_string = wp_json_encode( $context, $json_flags );
+            } else {
+                $context_string = json_encode( $context );
+            }
+
+            if ( $context_string ) {
+                $message .= ' ' . $context_string;
+            }
+        }
+
+        $timestamp = current_time( 'mysql' );
+
+        if ( ! $timestamp ) {
+            $timestamp = gmdate( 'Y-m-d H:i:s' );
+        }
+
+        $entry = sprintf( '[%s] %s', $timestamp, $message );
+
+        $uploads = function_exists( 'wp_get_upload_dir' ) ? wp_get_upload_dir() : [];
+
+        if ( ! empty( $uploads['basedir'] ) ) {
+            if ( function_exists( 'trailingslashit' ) ) {
+                $directory = trailingslashit( $uploads['basedir'] );
+            } else {
+                $directory = rtrim( $uploads['basedir'], '/\\' ) . '/';
+            }
+
+            if ( ! file_exists( $directory ) && function_exists( 'wp_mkdir_p' ) ) {
+                wp_mkdir_p( $directory );
+            }
+
+            if ( is_dir( $directory ) && is_writable( $directory ) ) {
+                $log_file = $directory . 'wrpa-access-log.txt';
+                $result   = @file_put_contents( $log_file, $entry . PHP_EOL, FILE_APPEND | LOCK_EX );
+
+                if ( false !== $result ) {
+                    return;
+                }
+            }
+        }
+
+        if ( function_exists( 'error_log' ) ) {
+            error_log( $entry );
+        }
+    }
 }
