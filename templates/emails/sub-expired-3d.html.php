@@ -1,40 +1,41 @@
-<!DOCTYPE html>
-<html lang="tr">
+<!doctype html>
+<html>
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{site_name}</title>
+  <meta charset='UTF-8'>
+  <title>{site_name}</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
 </head>
-<body style="margin:0; padding:0; background-color:#f4f4f7;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;">
-        <tr>
-            <td align="center" style="padding:24px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden;">
-                    <tr>
-                        <td style="padding:32px 40px;">
-                            <h1 style="margin:0 0 16px; font-size:26px; color:#111827;">Aboneliğiniz sona erdi</h1>
-                            <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#4b5563;">
-                                Merhaba {user_first_name}, {plan_name} aboneliğiniz {expire_date_human} tarihinde sona erdi ve erişiminiz durduruldu. Ayrıcalıklarınızı yeniden kazanmak için aboneliğinizi şimdi yenileyebilirsiniz.
-                            </p>
-                            <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#4b5563;">
-                                Yenilediğinizde kişisel öğrenme yolları, indirilebilir kaynaklar ve topluluk etkinlikleri tekrar kullanımınıza açılacak.
-                            </p>
-                            <p style="text-align:center; margin:0 0 32px;">
-                                <a href="{subscribe_url}" style="display:inline-block; padding:14px 32px; background:#2563eb; color:#ffffff; font-size:16px; font-weight:600; border-radius:8px; text-decoration:none;">Tekrar Abone Ol</a>
-                            </p>
-                            <p style="margin:0; font-size:14px; line-height:1.6; color:#6b7280;">
-                                Abonelik seçenekleri hakkında sorularınız varsa {support_email} adresinden bizimle iletişime geçebilirsiniz.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background:#f3f4f6; padding:20px 40px; text-align:center;">
-                            <p style="margin:0; font-size:13px; color:#6b7280;">© {site_name} · <a href="{subscribe_url}" style="color:#2563eb; text-decoration:none;">Aboneliği Yenile</a> · <a href="{unsubscribe_url}" style="color:#2563eb; text-decoration:none;">Bildirimleri Kapat</a></p>
-                        </td>
-                    </tr>
-                </table>
+<body style='margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#ffffff;color:#111111;'>
+  <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center'>
+        <table width='620' cellpadding='24' cellspacing='0' style='max-width:620px;border:1px solid #eee;'>
+          <tr>
+            <td>
+              <!-- Email Content Starts -->
+              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'>Your Membership Has Ended</h2>
+              <p style='margin:0 0 10px 0;font-size:16px;'>Hi {user_first_name},</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Your {plan_name} subscription expired on {expire_date_human}, so access to premium courses and events is currently paused. We'd love to welcome you back anytime.</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Renew now to regain curated learning paths, downloadable resources, and invitations to upcoming live sessions.</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>If you have questions about plan options, message us at <a href='mailto:{support_email}' style='color:#d50000;text-decoration:none;'>{support_email}</a>.</p>
+              <p style='margin:26px 0;'>
+                <a href='{subscribe_url}' style='display:inline-block;padding:12px 24px;text-decoration:none;border-radius:6px;
+                   background-color:#d50000;color:#ffffff;font-weight:bold;'>
+                  Renew Subscription
+                </a>
+              </p>
+              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'>Warm regards,<br><strong>Wisdom Rain</strong></p>
+              <hr style='border:0;border-top:1px solid #ddd;margin:30px 0;'>
+              <small style='font-size:12px;color:#666;'>You are receiving this email from {site_name}. 
+                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>My Account</a> · 
+                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'>Unsubscribe</a>
+              </small>
+              <!-- Email Content Ends -->
             </td>
-        </tr>
-    </table>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

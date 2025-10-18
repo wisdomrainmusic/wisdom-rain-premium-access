@@ -1,41 +1,43 @@
-<!DOCTYPE html>
-<html lang="tr">
+<!doctype html>
+<html>
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{site_name}</title>
+  <meta charset='UTF-8'>
+  <title>{site_name}</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
 </head>
-<body style="margin:0; padding:0; background-color:#f4f4f7;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;">
-        <tr>
-            <td align="center" style="padding:24px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden;">
-                    <tr>
-                        <td style="padding:32px 40px;">
-                            <h1 style="margin:0 0 16px; font-size:26px; color:#111827;">E-posta adresinizi doğrulayın</h1>
-                            <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#4b5563;">
-                                Merhaba {user_first_name}, Wisdom Rain Premium Access üyeliğinizi tamamlamak için e-posta adresinizi doğrulamanız gerekiyor. Bu adım hesabınızı güvence altına alır ve size özel içeriklere erişmenizi sağlar.
-                            </p>
-                            <p style="text-align:center; margin:0 0 32px;">
-                                <a href="{verify_email_url}" style="display:inline-block; padding:14px 32px; background:#2563eb; color:#ffffff; font-size:16px; font-weight:600; border-radius:8px; text-decoration:none;">E-postayı Doğrula</a>
-                            </p>
-                            <p style="margin:0 0 16px; font-size:14px; line-height:1.6; color:#6b7280;">
-                                Buton çalışmazsa aşağıdaki bağlantıyı kopyalayıp tarayıcınıza yapıştırabilirsiniz:<br />
-                                <a href="{verify_email_url}" style="color:#2563eb; text-decoration:none; word-break:break-all;">{verify_email_url}</a>
-                            </p>
-                            <p style="margin:0; font-size:14px; line-height:1.6; color:#6b7280;">
-                                Hesap ayarlarınıza ulaşmak için <a href="{dashboard_url}" style="color:#2563eb; text-decoration:none;">kontrol panelinizi</a> ziyaret edin veya desteğe ihtiyaç duyarsanız {support_email} adresinden bize yazın.
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background:#f3f4f6; padding:20px 40px; text-align:center;">
-                            <p style="margin:0; font-size:13px; color:#6b7280;">© {site_name} · <a href="{dashboard_url}" style="color:#2563eb; text-decoration:none;">Kontrol Paneli</a> · <a href="{unsubscribe_url}" style="color:#2563eb; text-decoration:none;">Bildirimleri Kapat</a></p>
-                        </td>
-                    </tr>
-                </table>
+<body style='margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#ffffff;color:#111111;'>
+  <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center'>
+        <table width='620' cellpadding='24' cellspacing='0' style='max-width:620px;border:1px solid #eee;'>
+          <tr>
+            <td>
+              <!-- Email Content Starts -->
+              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'>Verify Your Email Address</h2>
+              <p style='margin:0 0 10px 0;font-size:16px;'>Hi {user_first_name},</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>To secure your {site_name} account and access member-only resources, please confirm your email address. This quick step protects your data and keeps your personalized recommendations accurate.</p>
+              <p style='margin:26px 0;'>
+                <a href='{verify_email_url}' style='display:inline-block;padding:12px 24px;text-decoration:none;border-radius:6px;
+                   background-color:#d50000;color:#ffffff;font-weight:bold;'>
+                  Verify Email
+                </a>
+              </p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>If the button doesn't work, copy and paste this link into your browser:<br>
+                <a href='{verify_email_url}' style='color:#d50000;text-decoration:none;word-break:break-all;'>{verify_email_url}</a>
+              </p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>You can always review your profile from <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>your dashboard</a> or contact us at <a href='mailto:{support_email}' style='color:#d50000;text-decoration:none;'>{support_email}</a> if you need help.</p>
+              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'>Warm regards,<br><strong>Wisdom Rain</strong></p>
+              <hr style='border:0;border-top:1px solid #ddd;margin:30px 0;'>
+              <small style='font-size:12px;color:#666;'>You are receiving this email from {site_name}. 
+                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>My Account</a> · 
+                <a href='{unsubscribe_url}' style='color:#d50000;text-decoration:none;'>Unsubscribe</a>
+              </small>
+              <!-- Email Content Ends -->
             </td>
-        </tr>
-    </table>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

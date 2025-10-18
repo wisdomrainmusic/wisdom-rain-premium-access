@@ -1,40 +1,40 @@
-<!DOCTYPE html>
-<html lang="tr">
+<!doctype html>
+<html>
 <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{site_name}</title>
+  <meta charset='UTF-8'>
+  <title>{site_name}</title>
+  <meta name='viewport' content='width=device-width, initial-scale=1.0'/>
 </head>
-<body style="margin:0; padding:0; background-color:#f4f4f7;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:'Helvetica Neue', Helvetica, Arial, sans-serif;">
-        <tr>
-            <td align="center" style="padding:24px;">
-                <table role="presentation" cellpadding="0" cellspacing="0" width="100%" style="max-width:600px; background:#ffffff; border-radius:12px; overflow:hidden;">
-                    <tr>
-                        <td style="padding:32px 40px;">
-                            <h1 style="margin:0 0 16px; font-size:26px; color:#111827;">Hoş geldin, {user_first_name}!</h1>
-                            <p style="margin:0 0 16px; font-size:16px; line-height:1.6; color:#4b5563;">
-                                Wisdom Rain Premium Access ailesine katıldığınız için teşekkür ederiz. {plan_name} planınız ile birlikte sizi bekleyen onlarca özel içerik, eğitim ve topluluk fırsatı var.
-                            </p>
-                            <p style="margin:0 0 24px; font-size:16px; line-height:1.6; color:#4b5563;">
-                                Başlamak için kontrol panelinizi ziyaret ederek profilinizi güncelleyebilir, ilk dersinizi seçebilir ve size özel hazırladığımız rehberleri inceleyebilirsiniz.
-                            </p>
-                            <p style="text-align:center; margin:0 0 32px;">
-                                <a href="{dashboard_url}" style="display:inline-block; padding:14px 32px; background:#2563eb; color:#ffffff; font-size:16px; font-weight:600; border-radius:8px; text-decoration:none;">Kontrol Paneline Git</a>
-                            </p>
-                            <p style="margin:0; font-size:14px; line-height:1.6; color:#6b7280;">
-                                Herhangi bir sorunuz olduğunda bize {support_email} adresinden ulaşabilirsiniz. Keyifli keşifler!
-                            </p>
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style="background:#f3f4f6; padding:20px 40px; text-align:center;">
-                            <p style="margin:0; font-size:13px; color:#6b7280;">© {site_name} · <a href="{dashboard_url}" style="color:#2563eb; text-decoration:none;">Kontrol Paneli</a> · <a href="{manage_subscription_url}" style="color:#2563eb; text-decoration:none;">Aboneliği Yönet</a></p>
-                        </td>
-                    </tr>
-                </table>
+<body style='margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;background-color:#ffffff;color:#111111;'>
+  <table role='presentation' width='100%' cellpadding='0' cellspacing='0' style='background:#ffffff;'>
+    <tr>
+      <td align='center'>
+        <table width='620' cellpadding='24' cellspacing='0' style='max-width:620px;border:1px solid #eee;'>
+          <tr>
+            <td>
+              <!-- Email Content Starts -->
+              <h2 style='margin:0 0 15px 0;font-size:22px;color:#000000;'>Welcome to {site_name} Premium</h2>
+              <p style='margin:0 0 10px 0;font-size:16px;'>Hi {user_first_name},</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>We're delighted to have you in the {plan_name} plan. Your new membership unlocks guided programs, live sessions, and an engaged community that is ready to grow alongside you.</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Visit your dashboard to personalize your learning path, pick your first class, and download the welcome resources prepared especially for you.</p>
+              <p style='margin:0 0 18px 0;font-size:15px;line-height:1.5;'>Need to adjust your billing details? You can manage your subscription anytime through <a href='{manage_subscription_url}' style='color:#d50000;text-decoration:none;'>this link</a> or email us at <a href='mailto:{support_email}' style='color:#d50000;text-decoration:none;'>{support_email}</a>.</p>
+              <p style='margin:26px 0;'>
+                <a href='{dashboard_url}' style='display:inline-block;padding:12px 24px;text-decoration:none;border-radius:6px;
+                   background-color:#d50000;color:#ffffff;font-weight:bold;'>
+                  Open My Dashboard
+                </a>
+              </p>
+              <p style='margin:0 0 20px 0;font-size:14px;color:#333;'>Warm regards,<br><strong>Wisdom Rain</strong></p>
+              <hr style='border:0;border-top:1px solid #ddd;margin:30px 0;'>
+              <small style='font-size:12px;color:#666;'>You are receiving this email from {site_name}. 
+                <a href='{dashboard_url}' style='color:#d50000;text-decoration:none;'>My Account</a>
+              </small>
+              <!-- Email Content Ends -->
             </td>
-        </tr>
-    </table>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
