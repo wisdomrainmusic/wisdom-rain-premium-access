@@ -32,6 +32,7 @@ class WRPA_Core {
         \WRPA\WRPA_Email_Verify::init();
         \WRPA\WRPA_Email_Admin::init();
         \WRPA\WRPA_Email_Cron::init();
+        \WRPA\WRPA_Email_Unsubscribe::init();
         self::init_hooks();
     }
 
@@ -71,6 +72,7 @@ class WRPA_Core {
         require_once WRPA_PATH . 'includes/class-wrpa-email-verify.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-cron.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-email-unsubscribe.php';
     }
 
     /**

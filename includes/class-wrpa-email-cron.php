@@ -653,6 +653,10 @@ class WRPA_Email_Cron {
      * @return string
      */
     protected static function get_unsubscribe_url() : string {
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) ) {
+            return WRPA_Email_Unsubscribe::get_unsubscribe_url( 0 );
+        }
+
         return home_url( '/account/preferences/' );
     }
 }
