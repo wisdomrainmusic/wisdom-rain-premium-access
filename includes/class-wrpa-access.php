@@ -370,6 +370,10 @@ class WRPA_Access {
             return;
         }
 
+        if ( self::is_checkout_or_account_context() ) {
+            return;
+        }
+
         $protected_post_types = self::get_protected_post_types();
         $is_protected_request = self::is_protected_request( $protected_post_types );
 
@@ -400,6 +404,10 @@ class WRPA_Access {
             return;
         }
 
+        if ( self::is_checkout_or_account_context() ) {
+            return;
+        }
+
         if ( ! is_singular() ) {
             return;
         }
@@ -427,6 +435,31 @@ class WRPA_Access {
 
         wp_safe_redirect( $destination );
         exit;
+    }
+
+    /**
+     * Determines whether the current request is part of the checkout, cart or account flow.
+     *
+     * @return bool
+     */
+    protected static function is_checkout_or_account_context() {
+        if ( function_exists( 'is_checkout' ) && is_checkout() ) {
+            return true;
+        }
+
+        if ( function_exists( 'is_cart' ) && is_cart() ) {
+            return true;
+        }
+
+        if ( function_exists( 'is_account_page' ) && is_account_page() ) {
+            return true;
+        }
+
+        if ( function_exists( 'is_page' ) && is_page( [ 'checkout', 'cart', 'my-account' ] ) ) {
+            return true;
+        }
+
+        return false;
     }
 
     /**
