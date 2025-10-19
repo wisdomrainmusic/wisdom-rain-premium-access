@@ -67,17 +67,38 @@ class WRPA_Email_Unsubscribe {
      * @return string
      */
     public static function get_unsubscribe_url( int $user_id ) : string {
+        $base_url = class_exists( __NAMESPACE__ . '\\WRPA_Urls' )
+            ? WRPA_Urls::unsubscribe_base_url()
+            : home_url( '/unsubscribe/' );
+
         if ( $user_id <= 0 ) {
-            return home_url( '/account/email-preferences/' );
+            return trailingslashit( untrailingslashit( $base_url ) );
+        }
+
+        return self::signed_url_for( $user_id, $base_url );
+    }
+
+    /**
+     * Generates a signed unsubscribe URL for a given base.
+     *
+     * @param int    $user_id  WordPress user ID.
+     * @param string $base_url Canonical unsubscribe base URL.
+     * @return string Signed unsubscribe URL.
+     */
+    public static function signed_url_for( int $user_id, string $base_url ) : string {
+        $normalized_base = trailingslashit( untrailingslashit( $base_url ) );
+
+        if ( $user_id <= 0 ) {
+            return $normalized_base;
         }
 
         $token = self::generate_token( $user_id );
 
         if ( '' === $token ) {
-            return home_url( '/' );
+            return $normalized_base;
         }
 
-        return add_query_arg( self::QUERY_KEY, rawurlencode( $token ), home_url( '/' ) );
+        return add_query_arg( self::QUERY_KEY, rawurlencode( $token ), $normalized_base );
     }
 
     /**
