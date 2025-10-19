@@ -1076,6 +1076,15 @@ class WRPA_Email_Admin {
             'interval' => 'monthly',
         ];
 
+        $core_urls = class_exists( __NAMESPACE__ . '\\WRPA_Core' ) ? WRPA_Core::urls() : [];
+        $account_url = $core_urls['account_url'] ?? ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' )
+            ? WRPA_Urls::account_url()
+            : 'https://wisdomrainbookmusic.com/my-account/' );
+
+        $unsubscribe_url = $core_urls['unsubscribe_url'] ?? ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' )
+            ? WRPA_Urls::unsubscribe_base_url()
+            : 'https://wisdomrainbookmusic.com/unsubscribe/' );
+
         $vars = [
             'user_first_name'       => __( 'Ada', 'wrpa' ),
             'user_last_name'        => __( 'Lovelace', 'wrpa' ),
@@ -1089,10 +1098,10 @@ class WRPA_Email_Admin {
             'support_email'         => $admin_email,
             'dashboard_url'         => home_url( '/panel/' ),
             'manage_subscription_url' => home_url( '/abonelik/' ),
-            'account_url'           => home_url( '/hesabim/' ),
+            'account_url'           => $account_url,
             'order_id'              => 'WRPA-12345',
             'verify_email_url'      => $user_id ? WRPA_Email_Verify::get_verify_url( $user_id ) : home_url( '/verify-email/' ),
-            'unsubscribe_url'       => home_url( '/abonelik-iptal/' ),
+            'unsubscribe_url'       => $unsubscribe_url,
             'gift_card_url'         => home_url( '/hediye-karti/' ),
             'campaign_event_url'    => home_url( '/etkinlik/wrpa/' ),
             'share_link'            => home_url( '/paylas/wrpa/' ),
@@ -1109,6 +1118,10 @@ class WRPA_Email_Admin {
 
         if ( $user_id ) {
             $vars = array_merge( $vars, WRPA_Email::get_user_context( $user_id ) );
+
+            if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) ) {
+                $vars['unsubscribe_url'] = WRPA_Email_Unsubscribe::get_unsubscribe_url( $user_id );
+            }
         }
 
         return WRPA_Email::get_placeholder_map( $vars );

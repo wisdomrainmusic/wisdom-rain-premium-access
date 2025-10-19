@@ -27,6 +27,7 @@ class WRPA_Core {
 
         self::define_constants();
         self::load_dependencies();
+        \WRPA\WRPA_Urls::init();
         \WRPA\WRPA_Access::init();
         \WRPA\WRPA_Email::init();
         \WRPA\WRPA_Email_Verify::init();
@@ -121,6 +122,9 @@ class WRPA_Core {
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' ) ) {
             $urls['account_url']     = WRPA_Urls::account_url();
             $urls['unsubscribe_url'] = WRPA_Urls::unsubscribe_base_url();
+        } else {
+            $urls['account_url']     = 'https://wisdomrainbookmusic.com/my-account/';
+            $urls['unsubscribe_url'] = 'https://wisdomrainbookmusic.com/unsubscribe/';
         }
 
         return $urls;
@@ -138,6 +142,10 @@ class WRPA_Core {
         WRPA_Email_Log::install_table();
 
         do_action( 'wrpa/activate' );
+
+        if ( function_exists( 'flush_rewrite_rules' ) ) {
+            flush_rewrite_rules();
+        }
     }
 
     /**
