@@ -1111,6 +1111,6 @@ class WRPA_Email_Admin {
             $vars = array_merge( $vars, WRPA_Email::get_user_context( $user_id ) );
         }
 
-        return $vars;
+        return WRPA_Email::get_placeholder_map( $vars );
     }
 }

@@ -68,6 +68,7 @@ class WRPA_Core {
         require_once WRPA_PATH . 'includes/class-wrpa-access.php';
         require_once WRPA_PATH . 'includes/class-wrpa-admin.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-log.php';
+        require_once WRPA_PATH . 'includes/class-wrpa-urls.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-verify.php';
         require_once WRPA_PATH . 'includes/class-wrpa-email-admin.php';
@@ -110,12 +111,19 @@ class WRPA_Core {
      * @return array
      */
     public static function urls() : array {
-        return [
+        $urls = [
             'subscribe_url'           => home_url( '/subscribe/' ),
             'dashboard_url'           => home_url( '/dashboard/' ),
             'manage_subscription_url' => home_url( '/account/subscriptions/' ),
             'verify_email_url'        => home_url( '/verify-email/' ),
         ];
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' ) ) {
+            $urls['account_url']     = WRPA_Urls::account_url();
+            $urls['unsubscribe_url'] = WRPA_Urls::unsubscribe_base_url();
+        }
+
+        return $urls;
     }
 
     /**
