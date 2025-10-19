@@ -298,17 +298,27 @@ class WRPA_Email {
             $url_defaults = array_merge( $url_defaults, WRPA_Core::urls() );
         }
 
+        $account_url = $url_defaults['account_url'] ?? '';
+
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' ) ) {
-            $url_defaults['account_url'] = WRPA_Urls::account_url();
+            $account_url = WRPA_Urls::account_url();
         }
 
-        if ( ! isset( $url_defaults['account_url'] ) ) {
-            $url_defaults['account_url'] = home_url( '/my-account/' );
+        if ( '' === $account_url ) {
+            $account_url = 'https://wisdomrainbookmusic.com/my-account/';
         }
 
-        $unsubscribe_base = class_exists( __NAMESPACE__ . '\\WRPA_Urls' )
-            ? WRPA_Urls::unsubscribe_base_url()
-            : home_url( '/unsubscribe/' );
+        $url_defaults['account_url'] = $account_url;
+
+        $unsubscribe_base = $url_defaults['unsubscribe_url'] ?? '';
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' ) ) {
+            $unsubscribe_base = WRPA_Urls::unsubscribe_base_url();
+        }
+
+        if ( '' === $unsubscribe_base ) {
+            $unsubscribe_base = 'https://wisdomrainbookmusic.com/unsubscribe/';
+        }
 
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) ) {
             $url_defaults['unsubscribe_url'] = $user_id

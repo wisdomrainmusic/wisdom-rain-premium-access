@@ -67,12 +67,16 @@ class WRPA_Email_Unsubscribe {
      * @return string
      */
     public static function get_unsubscribe_url( int $user_id ) : string {
-        $base_url = class_exists( __NAMESPACE__ . '\\WRPA_Urls' )
-            ? WRPA_Urls::unsubscribe_base_url()
-            : home_url( '/unsubscribe/' );
+        $base_url = 'https://wisdomrainbookmusic.com/unsubscribe/';
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Urls' ) ) {
+            $base_url = WRPA_Urls::unsubscribe_base_url();
+        }
+
+        $base_url = trailingslashit( untrailingslashit( $base_url ) );
 
         if ( $user_id <= 0 ) {
-            return trailingslashit( untrailingslashit( $base_url ) );
+            return $base_url;
         }
 
         return self::signed_url_for( $user_id, $base_url );

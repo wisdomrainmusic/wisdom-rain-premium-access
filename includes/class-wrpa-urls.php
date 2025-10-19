@@ -26,6 +26,13 @@ class WRPA_Urls {
     private const UNSUBSCRIBE_CANONICAL = 'https://wisdomrainbookmusic.com/unsubscribe/';
 
     /**
+     * Boots URL related hooks.
+     */
+    public static function init() : void {
+        add_action( 'wrpa/frontend_init', [ __CLASS__, 'maybe_redirect_legacy_slugs' ], 0 );
+    }
+
+    /**
      * Returns the canonical "My Account" URL with a trailing slash.
      */
     public static function account_url() : string {
@@ -51,6 +58,41 @@ class WRPA_Urls {
          * @param string $url Canonical unsubscribe URL.
          */
         return (string) apply_filters( 'wrpa_unsubscribe_base_url', $url );
+    }
+
+    /**
+     * Redirects deprecated slugs to their canonical English equivalents.
+     */
+    public static function maybe_redirect_legacy_slugs() : void {
+        if ( is_admin() || headers_sent() ) {
+            return;
+        }
+
+        $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+
+        if ( '' === $request_uri ) {
+            return;
+        }
+
+        $path = wp_parse_url( $request_uri, PHP_URL_PATH );
+
+        if ( null === $path ) {
+            $path = $request_uri;
+        }
+
+        $normalized_path = trailingslashit( '/' . ltrim( strtolower( $path ), '/' ) );
+
+        $legacy_map = [
+            trailingslashit( '/abonelik-iptal/' ) => self::unsubscribe_base_url(),
+            trailingslashit( '/hesabim/' )        => self::account_url(),
+        ];
+
+        foreach ( $legacy_map as $legacy => $destination ) {
+            if ( $legacy === $normalized_path ) {
+                wp_safe_redirect( $destination, 301 );
+                exit;
+            }
+        }
     }
 
     /**
