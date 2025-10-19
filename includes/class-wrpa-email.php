@@ -60,7 +60,25 @@ class WRPA_Email {
             return false;
         }
 
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) && WRPA_Email_Unsubscribe::is_unsubscribed( $user_id ) ) {
+            self::debug_log(
+                'Email delivery suppressed — user unsubscribed.',
+                [
+                    'user_id' => $user_id,
+                    'slug'    => $template_type,
+                ]
+            );
+
+            do_action( 'wrpa_email_suppressed', $user_id, $template_type );
+
+            return false;
+        }
+
         $vars   = array_merge( self::get_user_context( $user_id ), $data );
+
+        if ( isset( $vars['user_id'] ) && class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) ) {
+            $vars['unsubscribe_url'] = WRPA_Email_Unsubscribe::get_unsubscribe_url( (int) $vars['user_id'] );
+        }
         $slug   = sanitize_key( $template_type );
         $body   = self::render_template( $slug, $vars );
 
@@ -262,10 +280,9 @@ class WRPA_Email {
      */
     public static function replace_placeholders( string $html, array $vars ) : string {
         $defaults = [
-            'site_name'       => get_bloginfo( 'name' ),
-            'site_url'        => home_url( '/' ),
-            'support_email'   => 'support@wisdomrainbookmusic.com',
-            'unsubscribe_url' => home_url( '/account/email-preferences/' ),
+            'site_name'     => get_bloginfo( 'name' ),
+            'site_url'      => home_url( '/' ),
+            'support_email' => 'support@wisdomrainbookmusic.com',
         ];
 
         $user_id_for_url = isset( $vars['user_id'] ) ? absint( $vars['user_id'] ) : 0;
@@ -279,6 +296,12 @@ class WRPA_Email {
 
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
             $url_defaults = array_merge( $url_defaults, WRPA_Core::urls() );
+        }
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) ) {
+            $defaults['unsubscribe_url'] = WRPA_Email_Unsubscribe::get_unsubscribe_url( $user_id_for_url );
+        } else {
+            $defaults['unsubscribe_url'] = home_url( '/account/email-preferences/' );
         }
 
         $vars = array_merge( $defaults, $url_defaults, $vars );
@@ -355,6 +378,10 @@ class WRPA_Email {
             'manage_subscription_url' => home_url( '/account/subscriptions/' ),
             'verify_email_url'        => WRPA_Email_Verify::get_verify_url( $user_id ),
         ];
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Unsubscribe' ) ) {
+            $url_defaults['unsubscribe_url'] = WRPA_Email_Unsubscribe::get_unsubscribe_url( $user_id );
+        }
 
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
             $url_defaults = array_merge( $url_defaults, WRPA_Core::urls() );
