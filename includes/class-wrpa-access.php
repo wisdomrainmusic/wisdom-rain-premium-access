@@ -46,6 +46,45 @@ class WRPA_Access {
         add_action( 'woocommerce_payment_complete', [ __CLASS__, 'grant_access' ] );
     }
 
+    public static function check_access() {
+
+        // 🧠 Whitelisted pages (no redirect protection)
+        $whitelist = [
+            'subscribe',
+            'my-account',
+            'cart',
+            'checkout',
+            'dashboard',
+            'home',
+        ];
+
+        // Bypass for admin and public pages
+        if ( is_admin() || is_page( $whitelist ) || is_front_page() ) {
+            return;
+        }
+
+        // Determine if the current page is one of the restricted CPTs
+        $restricted_cpts = ['library', 'music', 'meditations', 'childrens-stories', 'sleep-stories', 'magazines'];
+        $current_post_type = get_post_type();
+
+        // Apply redirect only if viewing restricted CPT content
+        if ( in_array( $current_post_type, $restricted_cpts, true ) ) {
+
+            // Check login
+            if ( ! is_user_logged_in() ) {
+                wp_redirect( home_url( '/subscribe/' ) );
+                exit;
+            }
+
+            // Check WRPA premium access
+            $has_access = get_user_meta( get_current_user_id(), 'wrpa_premium_active', true );
+            if ( empty( $has_access ) ) {
+                wp_redirect( home_url( '/subscribe/' ) );
+                exit;
+            }
+        }
+    }
+
     /**
      * Registers meta keys used to store restriction data.
      *
