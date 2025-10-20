@@ -76,13 +76,7 @@ class WRPA_Email_Verify {
             return home_url( '/' );
         }
 
-        return add_query_arg(
-            [
-                'wrpa-verify' => '1',
-                'token'       => $token,
-            ],
-            home_url( '/' )
-        );
+        return home_url( '/wisdom-rain-dashboard/' );
     }
 
     /**
