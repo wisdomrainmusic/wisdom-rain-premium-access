@@ -141,8 +141,10 @@ class WRPA_Access {
 }
 
 // Auto-init if plugin core not handling
-add_action( 'plugins_loaded', function() {
-    if ( class_exists( __NAMESPACE__ . '\\WRPA_Access' ) ) {
-        \WRPA\WRPA_Access::init();
-    }
-}, 20 );
+if ( ! did_action( 'wrpa/access_initialized' ) ) {
+    add_action( 'plugins_loaded', function() {
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Access' ) && ! did_action( 'wrpa/access_initialized' ) ) {
+            \WRPA\WRPA_Access::init();
+        }
+    }, 20 );
+}
