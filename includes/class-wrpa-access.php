@@ -242,7 +242,7 @@ class WRPA_Access {
         }
 
         if ( ! $dashboard ) {
-            $dashboard = home_url( '/dashboard/' );
+            $dashboard = home_url( '/wisdom-rain-dashboard/' );
         }
 
         return apply_filters( 'wrpa_dashboard_redirect_url', $dashboard );
