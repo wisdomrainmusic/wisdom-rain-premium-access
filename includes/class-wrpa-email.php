@@ -28,8 +28,7 @@ class WRPA_Email {
         add_action( 'wrpa_send_verification_email', [ __CLASS__, 'send_verification' ], 10, 1 );
 
         // Dispatch welcome email immediately after verification succeeds.
-        add_action( 'wrpa_email_verified', [ __CLASS__, 'send_welcome_after_verify' ], 10, 1 );
-        add_action( 'wrpa_user_verified_email', [ __CLASS__, 'send_welcome_after_verify' ], 10, 1 );
+        add_action( 'wrpa_email_verified', [ __CLASS__, 'send_welcome_after_verification' ], 10, 1 );
 
     }
 
@@ -424,12 +423,10 @@ class WRPA_Email {
     /**
      * Sends an email verification link to the specified user.
      *
-     * @param int         $user_id User identifier.
-     * @param bool        $force   Whether to bypass resend throttle.
-     * @param string|null $context Registration context for redirect handling.
+     * @param int $user_id User identifier.
      * @return bool
      */
-    public static function send_verification( $user_id, bool $force = false, ?string $context = null ) : bool {
+    public static function send_verification( $user_id, bool $force = false ) : bool {
         $user_id = absint( $user_id );
 
         if ( ! $user_id ) {
@@ -455,17 +452,7 @@ class WRPA_Email {
                 return false;
             }
 
-            $stored_context = get_user_meta( $user_id, WRPA_Email_Verify::META_CONTEXT, true );
-
-            if ( ( null === $context || '' === $context ) && is_string( $stored_context ) && '' !== $stored_context ) {
-                $context = $stored_context;
-            }
-
-            $context = WRPA_Email_Verify::normalize_context( (string) $context );
-
-            update_user_meta( $user_id, WRPA_Email_Verify::META_CONTEXT, $context );
-
-            $verify_url = WRPA_Email_Verify::get_verify_url( $user_id, $context );
+            $verify_url = WRPA_Email_Verify::get_verify_url( $user_id );
 
             if ( '' === $verify_url ) {
                 return false;
@@ -492,7 +479,7 @@ class WRPA_Email {
     /**
      * Sends the welcome email immediately after a user verifies their address.
      */
-    public static function send_welcome_after_verify( $user_id ) : void {
+    public static function send_welcome_after_verification( $user_id ) : void {
         $user_id = absint( $user_id );
 
         if ( ! $user_id ) {
@@ -500,13 +487,6 @@ class WRPA_Email {
         }
 
         self::send_email( $user_id, 'welcome' );
-    }
-
-    /**
-     * @deprecated 2.0.0 Backwards compatibility shim. Use send_welcome_after_verify().
-     */
-    public static function send_welcome_after_verification( $user_id ) : void {
-        self::send_welcome_after_verify( $user_id );
     }
 
     /**
