@@ -20,6 +20,7 @@ class WRPA_Email_Verify {
     const META_EXPIRES   = 'wrpa_verify_token_expires';
     const META_FLAG      = 'wrpa_email_verified';
     const META_LAST_SENT = 'wrpa_verify_last_sent';
+    const META_CONTEXT   = 'wrpa_verify_context';
 
     /**
      * Ensures verify handlers only run once per request lifecycle.
@@ -78,11 +79,13 @@ class WRPA_Email_Verify {
     /**
      * Returns the verification URL for a user, generating a token when required.
      *
-     * @param int $user_id User identifier.
+     * @param int    $user_id User identifier.
+     * @param string $context Registration context (e.g. signup, checkout).
      * @return string Verification URL.
      */
-    public static function get_verify_url( int $user_id ) : string {
+    public static function get_verify_url( int $user_id, string $context = 'signup' ) : string {
         $user_id = absint( $user_id );
+        $context = self::normalize_context( $context );
 
         if ( ! $user_id ) {
             return defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : site_url( '/wisdom-rain-dashboard/' );
@@ -105,6 +108,7 @@ class WRPA_Email_Verify {
             [
                 'wrpa-verify' => 1,
                 'token'       => $token,
+                'context'     => $context,
             ],
             $base
         );
@@ -126,22 +130,25 @@ class WRPA_Email_Verify {
 
         self::$handled_request = true;
 
+        $context = self::normalize_context( isset( $_GET['context'] ) ? wp_unslash( (string) $_GET['context'] ) : '' );
+
         if ( ! $is_verify_request ) {
-            self::redirect_with_flag( 'error' );
+            self::redirect_with_flag( 'error', $context );
         }
 
-        self::handle_request();
+        self::handle_request( $context );
     }
 
     /**
      * Handles verification once the request is confirmed for processing.
      */
-    protected static function handle_request() : void {
+    protected static function handle_request( string $context = '' ) : void {
         $raw_token = isset( $_GET['token'] ) ? wp_unslash( $_GET['token'] ) : '';
         $token     = sanitize_text_field( $raw_token );
+        $context   = self::normalize_context( $context );
 
         if ( '' === $token ) {
-            self::redirect_with_flag( 'error' );
+            self::redirect_with_flag( 'error', $context );
             return;
         }
 
@@ -155,32 +162,40 @@ class WRPA_Email_Verify {
         );
 
         if ( empty( $users ) ) {
-            self::redirect_with_flag( 'error' );
+            self::redirect_with_flag( 'error', $context );
             return;
         }
 
         $user_id = (int) $users[0];
         $expires = (int) get_user_meta( $user_id, self::META_EXPIRES, true );
 
+        if ( 'checkout' !== $context ) {
+            $stored_context = get_user_meta( $user_id, self::META_CONTEXT, true );
+            if ( is_string( $stored_context ) && '' !== $stored_context ) {
+                $context = self::normalize_context( $stored_context );
+            }
+        }
+
         if ( $expires < time() ) {
             delete_user_meta( $user_id, self::META_TOKEN );
             delete_user_meta( $user_id, self::META_EXPIRES );
-            self::redirect_with_flag( 'expired' );
+            self::redirect_with_flag( 'expired', $context, $user_id );
             return;
         }
 
         if ( self::is_verified( $user_id ) ) {
-            self::redirect_with_flag( 'success' );
+            self::redirect_with_flag( 'success', $context, $user_id );
         }
 
         update_user_meta( $user_id, self::META_FLAG, 1 );
         delete_user_meta( $user_id, self::META_TOKEN );
         delete_user_meta( $user_id, self::META_EXPIRES );
         delete_user_meta( $user_id, self::META_LAST_SENT );
+        delete_user_meta( $user_id, self::META_CONTEXT );
 
         do_action( 'wrpa_email_verified', $user_id );
 
-        self::redirect_with_flag( 'success' );
+        self::redirect_with_flag( 'success', $context, $user_id );
     }
 
     /**
@@ -202,14 +217,19 @@ class WRPA_Email_Verify {
         }
 
         if ( self::is_verified( $user_id ) ) {
-            self::redirect_with_flag( 'already-verified' );
+            self::redirect_with_flag( 'already-verified', '', $user_id );
         }
 
-        if ( class_exists( __NAMESPACE__ . '\WRPA_Email' ) && WRPA_Email::send_verification( $user_id ) ) {
-            self::redirect_with_flag( 'resent' );
+        $requested_context  = isset( $_GET['context'] ) ? wp_unslash( (string) $_GET['context'] ) : '';
+        $normalized_context = '' !== $requested_context ? self::normalize_context( $requested_context ) : '';
+
+        $send_context = '' === $normalized_context ? null : $normalized_context;
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Email' ) && WRPA_Email::send_verification( $user_id, false, $send_context ) ) {
+            self::redirect_with_flag( 'resent', $normalized_context, $user_id );
         }
 
-        self::redirect_with_flag( 'rate-limit' );
+        self::redirect_with_flag( 'rate-limit', $normalized_context, $user_id );
     }
 
     /**
@@ -233,13 +253,34 @@ class WRPA_Email_Verify {
     /**
      * Performs a safe redirect with status feedback appended to the dashboard URL.
      *
-     * @param string $status Status slug appended to the redirect query.
+     * @param string   $status  Status slug appended to the redirect query.
+     * @param string   $context Optional registration context guiding redirects.
+     * @param int|null $user_id Optional user identifier for context fallback.
      */
-    protected static function redirect_with_flag( string $status ) : void {
-        $status      = sanitize_key( $status );
-        $destination = in_array( $status, [ 'success', 'already-verified' ], true )
-            ? self::success_redirect_url( $status )
+    protected static function redirect_with_flag( string $status, string $context = '', ?int $user_id = null ) : void {
+        $status  = sanitize_key( $status );
+        $context = self::normalize_context( $context );
+
+        if ( $user_id ) {
+            $stored_context = get_user_meta( $user_id, self::META_CONTEXT, true );
+
+            if ( is_string( $stored_context ) && '' !== $stored_context ) {
+                $stored_context = self::normalize_context( $stored_context );
+
+                if ( 'checkout' === $stored_context && 'checkout' !== $context ) {
+                    $context = $stored_context;
+                }
+            }
+        }
+
+        $is_success   = in_array( $status, [ 'success', 'already-verified' ], true );
+        $destination = $is_success
+            ? self::success_redirect_url( $status, $context )
             : self::verify_required_url();
+
+        if ( 'checkout' === $context && ! $is_success ) {
+            $destination = add_query_arg( 'context', $context, $destination );
+        }
 
         $destination = add_query_arg( 'wrpa-verify-status', $status, $destination );
 
@@ -253,11 +294,33 @@ class WRPA_Email_Verify {
 
     /**
      * Resolves the destination used after successful verification.
+     *
+     * @param string $status  Verification status slug.
+     * @param string $context Registration context guiding redirect behavior.
      */
-    protected static function success_redirect_url( string $status ) : string {
+    protected static function success_redirect_url( string $status, string $context = '' ) : string {
         $destination = self::dashboard_url();
 
-        return apply_filters( 'wrpa_verify_success_redirect', $destination, $status );
+        if ( 'checkout' === $context ) {
+            $destination = self::checkout_url();
+        }
+
+        return apply_filters( 'wrpa_verify_success_redirect', $destination, $status, $context );
+    }
+
+    /**
+     * Normalizes the provided registration context to an allowed slug.
+     */
+    public static function normalize_context( string $context ) : string {
+        $context = sanitize_key( $context );
+
+        $allowed = [ 'signup', 'checkout' ];
+
+        if ( in_array( $context, $allowed, true ) ) {
+            return $context;
+        }
+
+        return 'signup';
     }
 
     /**
@@ -267,6 +330,27 @@ class WRPA_Email_Verify {
         $dashboard = site_url( '/wisdom-rain-dashboard/' );
 
         return apply_filters( 'wrpa_dashboard_redirect_url', $dashboard );
+    }
+
+    /**
+     * Returns the preferred checkout/cart destination for post-verification flows.
+     */
+    protected static function checkout_url() : string {
+        $cart_url = function_exists( 'wc_get_cart_url' ) ? wc_get_cart_url() : '';
+        $cart_url = is_string( $cart_url ) ? $cart_url : '';
+
+        $checkout_url = function_exists( 'wc_get_checkout_url' ) ? wc_get_checkout_url() : '';
+        $checkout_url = is_string( $checkout_url ) ? $checkout_url : '';
+
+        if ( '' !== $cart_url ) {
+            return $cart_url;
+        }
+
+        if ( '' !== $checkout_url ) {
+            return $checkout_url;
+        }
+
+        return home_url( '/cart/' );
     }
 
     /**
