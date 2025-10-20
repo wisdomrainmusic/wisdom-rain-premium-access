@@ -14,6 +14,9 @@ class WRPA_Access {
      * Initialize module hooks.
      */
     public static function init() {
+        // Enforce verification as early as possible on template redirect.
+        add_action( 'template_redirect', [ __CLASS__, 'enforce_email_verification_gate' ], 1 );
+
         // Main redirect protection
         add_action( 'template_redirect', [ __CLASS__, 'restrict_premium_pages' ], 5 );
 
@@ -25,6 +28,14 @@ class WRPA_Access {
 
         // Persist membership metadata for brand-new signups.
         add_action( 'user_register', [ __CLASS__, 'handle_user_registered' ], 10, 1 );
+
+        // Force email verification redirect after signup/login flows.
+        add_filter( 'registration_redirect', [ __CLASS__, 'force_verify_redirect_after_signup' ], PHP_INT_MAX );
+        add_filter( 'woocommerce_registration_redirect', [ __CLASS__, 'force_verify_redirect_after_signup' ], PHP_INT_MAX, 2 );
+
+        // Override login redirects to enforce verification first.
+        add_filter( 'login_redirect', [ __CLASS__, 'maybe_redirect_unverified_after_login' ], PHP_INT_MAX, 3 );
+        add_filter( 'woocommerce_login_redirect', [ __CLASS__, 'maybe_redirect_unverified_after_login' ], PHP_INT_MAX, 2 );
     }
 
     /**
@@ -36,17 +47,10 @@ class WRPA_Access {
             return;
         }
 
-        // 🧠 Whitelisted paths (no redirect protection)
         $request_uri = $_SERVER['REQUEST_URI'] ?? '';
 
+        // Skip protection for internal system endpoints.
         $allowed_paths = [
-            '/subscribe/',
-            '/sign-up/',
-            '/login/',
-            '/my-account/',
-            '/cart/',
-            '/checkout/',
-            '/wisdom-rain-dashboard/',
             '/verify-required/',
             '/wp-login.php',
             '/wp-json/',
@@ -56,20 +60,6 @@ class WRPA_Access {
         foreach ( $allowed_paths as $path ) {
             if ( stripos( $request_uri, $path ) !== false ) {
                 return; // whitelist match → no redirect
-            }
-        }
-
-        if ( self::should_require_verification() ) {
-            $protected_paths = [
-                '/subscribe/',
-                '/dashboard/',
-                '/wisdom-rain-dashboard/',
-            ];
-
-            foreach ( $protected_paths as $path ) {
-                if ( self::request_matches_path( $request_uri, $path ) ) {
-                    self::redirect_to_verify_required();
-                }
             }
         }
 
@@ -101,6 +91,93 @@ class WRPA_Access {
                 exit;
             }
         }
+    }
+
+    /**
+     * Enforces the verification required holding pattern for unverified users across key routes.
+     */
+    public static function enforce_email_verification_gate() : void {
+        if ( is_admin() || ( defined( 'DOING_AJAX' ) && DOING_AJAX ) || ( defined( 'REST_REQUEST' ) && REST_REQUEST ) ) {
+            return;
+        }
+
+        if ( ! self::should_require_verification() ) {
+            return;
+        }
+
+        $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+
+        $allowed_paths = [
+            '/verify-required/',
+            '/wp-login.php',
+            '/wp-json/',
+            '/wp-admin/admin-ajax.php'
+        ];
+
+        foreach ( $allowed_paths as $path ) {
+            if ( self::request_matches_path( $request_uri, $path ) ) {
+                return;
+            }
+        }
+
+        $blocked_paths = [
+            '/subscribe/',
+            '/dashboard/',
+            '/wisdom-rain-dashboard/',
+            '/my-account/',
+            '/account/',
+            '/checkout/',
+            '/cart/',
+        ];
+
+        foreach ( $blocked_paths as $path ) {
+            if ( self::request_matches_path( $request_uri, $path ) ) {
+                self::maybe_resend_verification_email();
+                self::redirect_to_verify_required();
+            }
+        }
+
+        // Default catch-all: keep user on verify-required if they try to hit other protected pages directly.
+        self::redirect_to_verify_required();
+    }
+
+    /**
+     * Forces redirect to the verification screen immediately after registration.
+     *
+     * @param string $redirect_url Original redirect destination.
+     * @return string
+     */
+    public static function force_verify_redirect_after_signup( string $redirect_url, $user = null ) : string {
+        return self::resolve_verify_required_url();
+    }
+
+    /**
+     * Ensures unverified accounts are redirected to verification immediately after login.
+     *
+     * @param mixed ...$args Redirect arguments from various login filters.
+     * @return string
+     */
+    public static function maybe_redirect_unverified_after_login( ...$args ) : string {
+        $redirect_to = $args[0] ?? '';
+
+        $user = null;
+        foreach ( array_reverse( $args ) as $arg ) {
+            if ( $arg instanceof \WP_User ) {
+                $user = $arg;
+                break;
+            }
+        }
+
+        if ( ! $user && is_user_logged_in() ) {
+            $user = wp_get_current_user();
+        }
+
+        if ( $user instanceof \WP_User && self::user_requires_verification( (int) $user->ID ) ) {
+            self::maybe_resend_verification_email( (int) $user->ID );
+            return self::resolve_verify_required_url();
+        }
+
+        return $redirect_to;
     }
 
     /**
@@ -181,11 +258,7 @@ class WRPA_Access {
 
         $user_id = get_current_user_id();
 
-        if ( ! $user_id ) {
-            return false;
-        }
-
-        return ! WRPA_Email_Verify::is_verified( $user_id );
+        return self::user_requires_verification( (int) $user_id );
     }
 
     /**
@@ -200,13 +273,34 @@ class WRPA_Access {
         $request_path = trailingslashit( $request_path );
         $path         = trailingslashit( $path );
 
-        return $request_path === $path;
+        return strpos( $request_path, $path ) === 0;
     }
 
     /**
      * Redirects the visitor to the verification required holding page.
      */
     protected static function redirect_to_verify_required() : void {
+        $destination = self::resolve_verify_required_url();
+
+        wp_safe_redirect( $destination );
+        exit;
+    }
+
+    /**
+     * Determines whether the provided user id requires email verification.
+     */
+    protected static function user_requires_verification( int $user_id ) : bool {
+        if ( ! $user_id || ! class_exists( __NAMESPACE__ . '\WRPA_Email_Verify' ) ) {
+            return false;
+        }
+
+        return ! WRPA_Email_Verify::is_verified( $user_id );
+    }
+
+    /**
+     * Resolve the verification required URL considering custom configuration.
+     */
+    protected static function resolve_verify_required_url() : string {
         $destination = home_url( '/verify-required/' );
 
         if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
@@ -217,9 +311,30 @@ class WRPA_Access {
             }
         }
 
-        $destination = apply_filters( 'wrpa_verify_required_url', $destination );
+        return apply_filters( 'wrpa_verify_required_url', $destination );
+    }
 
-        wp_safe_redirect( $destination );
-        exit;
+    /**
+     * Dispatches the verification email again while respecting per-user rate limits.
+     *
+     * @param int|null $user_id Optional user id. Defaults to the current user.
+     * @return void
+     */
+    protected static function maybe_resend_verification_email( ?int $user_id = null ) : void {
+        if ( ! class_exists( __NAMESPACE__ . '\WRPA_Email' ) ) {
+            return;
+        }
+
+        if ( null === $user_id ) {
+            $user_id = get_current_user_id();
+        }
+
+        $user_id = absint( $user_id );
+
+        if ( ! $user_id || ! self::user_requires_verification( $user_id ) ) {
+            return;
+        }
+
+        WRPA_Email::send_verification( $user_id );
     }
 }
