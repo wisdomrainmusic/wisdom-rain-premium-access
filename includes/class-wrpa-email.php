@@ -25,7 +25,7 @@ class WRPA_Email {
         add_filter( 'wp_mail_from_name', fn() => apply_filters( 'wrpa_mail_from_name', 'Wisdom Rain' ) );
 
         // Allow other modules to trigger verification emails via action.
-        add_action( 'wrpa_send_verification_email', [ __CLASS__, 'send_verification' ], 10, 2 );
+        add_action( 'wrpa_send_verification_email', [ __CLASS__, 'send_verification' ], 10, 1 );
 
     }
 
@@ -421,102 +421,93 @@ class WRPA_Email {
      * Sends an email verification link to the specified user.
      *
      * @param int $user_id User identifier.
-     * @return bool Whether a verification email was attempted.
+     * @return void
      */
-    public static function send_verification( $user_id, $token = '' ) {
-        $user_id = absint( $user_id );
+    public static function send_verification( $user_id ) {
+        if ( ! $user_id ) return;
+        $user = get_userdata( $user_id );
+        if ( ! $user ) return;
 
-        if ( ! $user_id ) {
-            self::log( 'WRPA email verification skipped — invalid user id provided.' );
-            return false;
+        $email = $user->user_email ?? '';
+
+        if ( ! $email ) {
+            return;
         }
 
-        $user = get_user_by( 'id', $user_id );
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Email_Verify' ) ) {
+            $verified_flag = get_user_meta( $user_id, WRPA_Email_Verify::META_FLAG, true );
 
-        if ( ! $user || empty( $user->user_email ) ) {
-            self::log(
-                'WRPA email verification skipped — user or email address missing.',
-                [
-                    'user_id' => $user_id,
-                ]
-            );
-            return false;
+            if ( $verified_flag ) {
+                return;
+            }
+
+            WRPA_Email_Verify::generate_token( $user_id );
         }
 
-        $verified_flag = get_user_meta( $user_id, WRPA_Email_Verify::META_FLAG, true );
+        $name = trim( $user->first_name ?? '' );
 
-        if ( $verified_flag ) {
-            self::log(
-                'WRPA email verification not sent — user already verified.',
-                [ 'user_id' => $user_id ]
-            );
-            return false;
+        if ( '' === $name ) {
+            $name = $user->display_name ?? '';
         }
 
-        if ( '' !== $token ) {
-            update_user_meta( $user_id, WRPA_Email_Verify::META_TOKEN, $token );
-            update_user_meta( $user_id, WRPA_Email_Verify::META_EXPIRES, time() + DAY_IN_SECONDS );
-        } else {
-            $token = WRPA_Email_Verify::generate_token( $user_id );
+        if ( '' === $name ) {
+            $name = __( 'there', 'wrpa' );
         }
 
-        if ( '' === $token ) {
-            self::log( 'WRPA email verification failed — token could not be generated.', [ 'user_id' => $user_id ] );
-            return false;
-        }
+        $subject = __( 'Confirm your Wisdom Rain email address', 'wrpa' );
+        $headers = self::get_headers();
 
-        $verify_url = WRPA_Email_Verify::get_verify_url( $user_id );
+        $verify_url = home_url( '/wisdom-rain-dashboard/' );
 
-        self::log(
-            'WRPA email verification generated.',
-            [
-                'user_id'    => $user_id,
-                'token_hash' => md5( $token ),
-            ]
-        );
+        ob_start();
+        ?>
+        <html>
+            <body style="margin:0;padding:0;background-color:#f5f5f5;">
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color:#f5f5f5;padding:24px 0;">
+                    <tr>
+                        <td align="center">
+                            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width:600px;background-color:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 6px 24px rgba(13,19,33,0.08);">
+                                <tr>
+                                    <td style="padding:32px 40px;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;color:#111827;font-size:16px;line-height:1.6;">
+                                        <p style="margin-top:0;margin-bottom:16px;font-size:18px;font-weight:600;">
+                                            <?php echo sprintf( esc_html__( 'Hi %s,', 'wrpa' ), esc_html( $name ) ); ?>
+                                        </p>
+                                        <p style="margin-top:0;margin-bottom:24px;">
+                                            <?php echo esc_html__( 'Thanks for joining Wisdom Rain Premium Access! Confirm your email address to finish activating your membership and unlock the full experience.', 'wrpa' ); ?>
+                                        </p>
+                                        <table role="presentation" cellspacing="0" cellpadding="0" border="0" align="center" style="margin:0 auto 24px;">
+                                            <tr>
+                                                <td style="border-radius:999px;background:#5a3fff;">
+                                                    <a href="<?php echo esc_url( $verify_url ); ?>" style="display:inline-block;padding:14px 28px;font-size:16px;font-weight:600;color:#ffffff;text-decoration:none;font-family:-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;">
+                                                        <?php echo esc_html__( 'Open Wisdom Rain Dashboard', 'wrpa' ); ?>
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                        <p style="margin-top:0;margin-bottom:16px;color:#6b7280;font-size:14px;">
+                                            <?php echo esc_html__( 'Having trouble with the button? Paste this link into your browser:', 'wrpa' ); ?>
+                                        </p>
+                                        <p style="margin-top:0;margin-bottom:24px;word-break:break-word;">
+                                            <a href="<?php echo esc_url( $verify_url ); ?>" style="color:#5a3fff;text-decoration:none;">
+                                                <?php echo esc_html( $verify_url ); ?>
+                                            </a>
+                                        </p>
+                                        <p style="margin-top:0;margin-bottom:0;color:#6b7280;font-size:14px;">
+                                            <?php echo esc_html__( 'If you did not create a Wisdom Rain account, you can safely ignore this message.', 'wrpa' ); ?>
+                                        </p>
+                                    </td>
+                                </tr>
+                            </table>
+                        </td>
+                    </tr>
+                </table>
+            </body>
+        </html>
+        <?php
 
-        $sent = self::send_email(
-            $user_id,
-            'email-verify',
-            [
-                'verify_email_url' => $verify_url,
-            ]
-        );
+        $message = (string) ob_get_clean();
 
-        if ( $sent ) {
-            return true;
-        }
-
-        // Fallback to a plain text email if templated delivery failed.
-        $subject = __( 'Confirm your email address', 'wrpa' );
-        /* translators: %s: verification URL */
-        $message = sprintf(
-            __( 'Please confirm your email address by visiting the following link: %s', 'wrpa' ),
-            esc_url( $verify_url )
-        );
-
-        $fallback_sent = wp_mail( $user->user_email, $subject, $message, self::get_headers() );
-
-        if ( $fallback_sent ) {
-            self::log(
-                'WRPA email verification email dispatched via fallback.',
-                [
-                    'user_id' => $user_id,
-                    'email'   => $user->user_email,
-                ]
-            );
-            return true;
-        }
-
-        self::log(
-            'WRPA email verification email failed to send even after fallback.',
-            [
-                'user_id' => $user_id,
-                'email'   => $user->user_email,
-            ]
-        );
-
-        return false;
+        wp_mail( $email, $subject, $message, $headers );
     }
 
     /**
