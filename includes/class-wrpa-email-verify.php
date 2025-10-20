@@ -224,7 +224,7 @@ class WRPA_Email_Verify {
     protected static function redirect_with_flag( string $status ) : void {
         $status      = sanitize_key( $status );
         $destination = in_array( $status, [ 'success', 'already-verified' ], true )
-            ? self::dashboard_url()
+            ? self::success_redirect_url( $status )
             : self::verify_required_url();
 
         $destination = add_query_arg( 'wrpa-verify-status', $status, $destination );
@@ -234,9 +234,22 @@ class WRPA_Email_Verify {
     }
 
     /**
+     * Resolves the destination used after successful verification.
+     */
+    protected static function success_redirect_url( string $status ) : string {
+        $destination = self::dashboard_url();
+
+        return apply_filters( 'wrpa_verify_success_redirect', $destination, $status );
+    }
+
+    /**
      * Returns the URL used for successful verification redirection.
      */
     protected static function dashboard_url() : string {
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Access' ) && method_exists( WRPA_Access::class, 'get_dashboard_url' ) ) {
+            return WRPA_Access::get_dashboard_url();
+        }
+
         $dashboard = home_url( '/dashboard/' );
 
         if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {

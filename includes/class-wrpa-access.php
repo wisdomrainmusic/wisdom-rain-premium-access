@@ -201,10 +201,51 @@ class WRPA_Access {
      * After email verification, redirect to dashboard.
      */
     public static function handle_email_verification_redirect() {
-        if ( isset( $_GET['wrpa_verified'] ) && $_GET['wrpa_verified'] === 'true' && is_user_logged_in() ) {
-            wp_safe_redirect( home_url( '/wisdom-rain-dashboard/' ) );
+        $status = isset( $_GET['wrpa-verify-status'] ) ? sanitize_key( wp_unslash( $_GET['wrpa-verify-status'] ) ) : '';
+
+        if ( in_array( $status, [ 'success', 'already-verified' ], true ) ) {
+            return;
+        }
+
+        if ( isset( $_GET['wrpa_verified'] ) && 'true' === $_GET['wrpa_verified'] && is_user_logged_in() ) {
+            $destination = add_query_arg( 'wrpa-verify-status', 'success', self::get_dashboard_url() );
+
+            wp_safe_redirect( $destination );
             exit;
         }
+    }
+
+    /**
+     * Resolves the canonical dashboard URL for post-verification redirects.
+     */
+    public static function get_dashboard_url() : string {
+        $dashboard = '';
+
+        if ( function_exists( 'wc_get_page_permalink' ) ) {
+            $account_url = wc_get_page_permalink( 'myaccount' );
+
+            if ( $account_url ) {
+                $dashboard = $account_url;
+            }
+        }
+
+        if ( ! $dashboard && defined( 'WRPA_DASHBOARD_URL' ) && WRPA_DASHBOARD_URL ) {
+            $dashboard = WRPA_DASHBOARD_URL;
+        }
+
+        if ( ! $dashboard && class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $urls = WRPA_Core::urls();
+
+            if ( ! empty( $urls['dashboard_url'] ) ) {
+                $dashboard = $urls['dashboard_url'];
+            }
+        }
+
+        if ( ! $dashboard ) {
+            $dashboard = home_url( '/dashboard/' );
+        }
+
+        return apply_filters( 'wrpa_dashboard_redirect_url', $dashboard );
     }
 
     /**
