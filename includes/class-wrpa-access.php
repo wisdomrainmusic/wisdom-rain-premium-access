@@ -108,6 +108,15 @@ class WRPA_Access {
             return;
         }
 
+        if ( is_user_logged_in() ) {
+            $user = wp_get_current_user();
+            $bypass_roles = [ 'administrator', 'editor', 'shop_manager' ];
+
+            if ( $user instanceof \WP_User && array_intersect( $bypass_roles, (array) $user->roles ) ) {
+                return;
+            }
+        }
+
         $status = isset( $_GET['wrpa-verify-status'] ) ? sanitize_key( wp_unslash( $_GET['wrpa-verify-status'] ) ) : '';
 
         if ( 'success' === $status ) {
