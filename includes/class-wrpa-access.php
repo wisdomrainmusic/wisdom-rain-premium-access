@@ -104,26 +104,45 @@ class WRPA_Access {
             return;
         }
 
-        if ( ! self::should_require_verification() ) {
+        // Allow WooCommerce front-end ajax handlers to complete without interference.
+        $wc_ajax_action = isset( $_GET['wc-ajax'] ) ? sanitize_key( wp_unslash( $_GET['wc-ajax'] ) ) : '';
+        if ( '' !== $wc_ajax_action ) {
             return;
         }
 
-        if ( is_user_logged_in() ) {
-            $user = wp_get_current_user();
-            $bypass_roles = [ 'administrator', 'editor', 'shop_manager' ];
+        if ( ! is_user_logged_in() ) {
+            return;
+        }
 
-            if ( $user instanceof \WP_User && array_intersect( $bypass_roles, (array) $user->roles ) ) {
-                return;
-            }
+        $user = wp_get_current_user();
+        if ( ! ( $user instanceof \WP_User ) ) {
+            return;
+        }
+
+        $user_id = (int) $user->ID;
+        if ( $user_id <= 0 ) {
+            return;
+        }
+
+        $bypass_roles = [ 'administrator', 'editor', 'shop_manager' ];
+        if ( array_intersect( $bypass_roles, (array) $user->roles ) ) {
+            return;
+        }
+
+        if ( ! class_exists( __NAMESPACE__ . '\\WRPA_Email_Verify' ) ) {
+            return;
+        }
+
+        if ( ! self::user_requires_verification( $user_id ) ) {
+            return;
         }
 
         $status = isset( $_GET['wrpa-verify-status'] ) ? sanitize_key( wp_unslash( $_GET['wrpa-verify-status'] ) ) : '';
-
-        if ( 'success' === $status ) {
+        if ( in_array( $status, [ 'success', 'already-verified' ], true ) ) {
             return;
         }
 
-        $request_uri = $_SERVER['REQUEST_URI'] ?? '';
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '';
 
         $allowed_paths = [
             '/verify-required/',
@@ -150,7 +169,7 @@ class WRPA_Access {
 
         foreach ( $blocked_paths as $path ) {
             if ( self::request_matches_path( $request_uri, $path ) ) {
-                self::maybe_resend_verification_email();
+                self::maybe_resend_verification_email( $user_id );
                 self::redirect_to_verify_required();
             }
         }
