@@ -16,15 +16,17 @@ if ( ! defined( 'ABSPATH' ) ) {
  */
 class WRPA_Email_Verify {
 
-    const META_TOKEN   = 'wrpa_verify_token';
-    const META_EXPIRES = 'wrpa_verify_token_expires';
-    const META_FLAG    = 'wrpa_email_verified';
+    const META_TOKEN     = 'wrpa_verify_token';
+    const META_EXPIRES   = 'wrpa_verify_token_expires';
+    const META_FLAG      = 'wrpa_email_verified';
+    const META_LAST_SENT = 'wrpa_verify_last_sent';
 
     /**
      * Bootstraps verification endpoint listeners.
      */
     public static function init() : void {
         add_action( 'init', [ __CLASS__, 'maybe_handle_request' ] );
+        add_action( 'init', [ __CLASS__, 'maybe_handle_resend_request' ] );
     }
 
     /**
@@ -53,6 +55,19 @@ class WRPA_Email_Verify {
     }
 
     /**
+     * Returns whether the provided user has completed email verification.
+     */
+    public static function is_verified( int $user_id ) : bool {
+        $user_id = absint( $user_id );
+
+        if ( ! $user_id ) {
+            return false;
+        }
+
+        return (bool) get_user_meta( $user_id, self::META_FLAG, true );
+    }
+
+    /**
      * Returns the verification URL for a user, generating a token when required.
      *
      * @param int $user_id User identifier.
@@ -76,7 +91,25 @@ class WRPA_Email_Verify {
             return home_url( '/' );
         }
 
-        return home_url( '/wisdom-rain-dashboard/' );
+        $base = home_url( '/verify-email/' );
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $urls = WRPA_Core::urls();
+
+            if ( ! empty( $urls['verify_email_url'] ) ) {
+                $base = $urls['verify_email_url'];
+            }
+        }
+
+        $base = apply_filters( 'wrpa_verify_email_base_url', $base, $user_id );
+
+        return add_query_arg(
+            [
+                'wrpa-verify' => 1,
+                'token'       => $token,
+            ],
+            $base
+        );
     }
 
     /**
@@ -119,13 +152,47 @@ class WRPA_Email_Verify {
             return;
         }
 
+        if ( self::is_verified( $user_id ) ) {
+            self::redirect_with_flag( 'already-verified' );
+        }
+
         update_user_meta( $user_id, self::META_FLAG, 1 );
         delete_user_meta( $user_id, self::META_TOKEN );
         delete_user_meta( $user_id, self::META_EXPIRES );
+        delete_user_meta( $user_id, self::META_LAST_SENT );
 
         do_action( 'wrpa_email_verified', $user_id );
 
         self::redirect_with_flag( 'success' );
+    }
+
+    /**
+     * Handles ?wrpa-resend=1 requests initiated from the verification required screen.
+     */
+    public static function maybe_handle_resend_request() : void {
+        if ( '1' !== (string) filter_input( INPUT_GET, 'wrpa-resend', FILTER_SANITIZE_NUMBER_INT ) ) {
+            return;
+        }
+
+        if ( ! is_user_logged_in() ) {
+            return;
+        }
+
+        $user_id = get_current_user_id();
+
+        if ( ! $user_id ) {
+            return;
+        }
+
+        if ( self::is_verified( $user_id ) ) {
+            self::redirect_with_flag( 'already-verified' );
+        }
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Email' ) && WRPA_Email::send_verification( $user_id ) ) {
+            self::redirect_with_flag( 'resent' );
+        }
+
+        self::redirect_with_flag( 'rate-limit' );
     }
 
     /**
@@ -134,17 +201,48 @@ class WRPA_Email_Verify {
      * @param string $status Status slug appended to the redirect query.
      */
     protected static function redirect_with_flag( string $status ) : void {
+        $status      = sanitize_key( $status );
+        $destination = in_array( $status, [ 'success', 'already-verified' ], true )
+            ? self::dashboard_url()
+            : self::verify_required_url();
+
+        $destination = add_query_arg( 'wrpa-verify-status', $status, $destination );
+
+        wp_safe_redirect( $destination );
+        exit;
+    }
+
+    /**
+     * Returns the URL used for successful verification redirection.
+     */
+    protected static function dashboard_url() : string {
         $dashboard = home_url( '/dashboard/' );
 
-        if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
             $urls = WRPA_Core::urls();
+
             if ( ! empty( $urls['dashboard_url'] ) ) {
                 $dashboard = $urls['dashboard_url'];
             }
         }
 
-        $destination = add_query_arg( 'wrpa-verify-status', sanitize_key( $status ), $dashboard );
-        wp_safe_redirect( $destination );
-        exit;
+        return apply_filters( 'wrpa_dashboard_redirect_url', $dashboard );
+    }
+
+    /**
+     * Returns the holding page for users awaiting email verification.
+     */
+    protected static function verify_required_url() : string {
+        $pending = home_url( '/verify-required/' );
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $urls = WRPA_Core::urls();
+
+            if ( ! empty( $urls['verify_required_url'] ) ) {
+                $pending = $urls['verify_required_url'];
+            }
+        }
+
+        return apply_filters( 'wrpa_verify_required_url', $pending );
     }
 }

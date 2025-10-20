@@ -47,6 +47,7 @@ class WRPA_Access {
             '/cart/',
             '/checkout/',
             '/wisdom-rain-dashboard/',
+            '/verify-required/',
             '/wp-login.php',
             '/wp-json/',
             '/wp-admin/admin-ajax.php'
@@ -55,6 +56,20 @@ class WRPA_Access {
         foreach ( $allowed_paths as $path ) {
             if ( stripos( $request_uri, $path ) !== false ) {
                 return; // whitelist match → no redirect
+            }
+        }
+
+        if ( self::should_require_verification() ) {
+            $protected_paths = [
+                '/subscribe/',
+                '/dashboard/',
+                '/wisdom-rain-dashboard/',
+            ];
+
+            foreach ( $protected_paths as $path ) {
+                if ( self::request_matches_path( $request_uri, $path ) ) {
+                    self::redirect_to_verify_required();
+                }
             }
         }
 
@@ -136,6 +151,15 @@ class WRPA_Access {
             update_user_meta( $user_id, 'wrpa_active_subscription', '' );
         }
 
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Email_Verify' ) ) {
+            WRPA_Email_Verify::generate_token( $user_id );
+            delete_user_meta( $user_id, WRPA_Email_Verify::META_FLAG );
+        }
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Email' ) ) {
+            WRPA_Email::send_verification( $user_id, true );
+        }
+
         do_action( 'wrpa/access_user_registered', $user_id );
     }
 
@@ -145,5 +169,57 @@ class WRPA_Access {
     private static function user_has_active_subscription( $user_id ) {
         $active = get_user_meta( $user_id, 'wrpa_active_subscription', true );
         return (bool) $active;
+    }
+
+    /**
+     * Determines whether the logged-in user must verify their email before proceeding.
+     */
+    protected static function should_require_verification() : bool {
+        if ( ! is_user_logged_in() || ! class_exists( __NAMESPACE__ . '\WRPA_Email_Verify' ) ) {
+            return false;
+        }
+
+        $user_id = get_current_user_id();
+
+        if ( ! $user_id ) {
+            return false;
+        }
+
+        return ! WRPA_Email_Verify::is_verified( $user_id );
+    }
+
+    /**
+     * Basic comparison helper that checks whether the current request targets a given path.
+     */
+    protected static function request_matches_path( string $request_uri, string $path ) : bool {
+        $request_path = parse_url( $request_uri, PHP_URL_PATH );
+        if ( ! is_string( $request_path ) ) {
+            $request_path = '';
+        }
+
+        $request_path = trailingslashit( $request_path );
+        $path         = trailingslashit( $path );
+
+        return $request_path === $path;
+    }
+
+    /**
+     * Redirects the visitor to the verification required holding page.
+     */
+    protected static function redirect_to_verify_required() : void {
+        $destination = home_url( '/verify-required/' );
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $urls = WRPA_Core::urls();
+
+            if ( ! empty( $urls['verify_required_url'] ) ) {
+                $destination = $urls['verify_required_url'];
+            }
+        }
+
+        $destination = apply_filters( 'wrpa_verify_required_url', $destination );
+
+        wp_safe_redirect( $destination );
+        exit;
     }
 }
