@@ -157,19 +157,19 @@ class WRPA_Access {
         }
 
         $blocked_paths = [
-            '/subscribe/',
-            '/dashboard/',
-            '/wisdom-rain-dashboard/',
-            '/my-account/',
-            '/account/',
-            '/checkout/',
-            '/cart/',
+            '/subscribe/'  => 'signup',
+            '/dashboard/'  => 'signup',
+            '/wisdom-rain-dashboard/' => 'signup',
+            '/my-account/' => 'signup',
+            '/account/'    => 'signup',
+            '/checkout/'   => 'checkout',
+            '/cart/'       => 'checkout',
         ];
 
-        foreach ( $blocked_paths as $path ) {
+        foreach ( $blocked_paths as $path => $context ) {
             if ( self::request_matches_path( $request_uri, $path ) ) {
-                self::maybe_resend_verification_email( $user_id );
-                self::redirect_to_verify_required();
+                self::maybe_resend_verification_email( $user_id, $context );
+                self::redirect_to_verify_required( $context );
             }
         }
 
@@ -244,8 +244,8 @@ class WRPA_Access {
             return $passed;
         }
 
-        self::maybe_resend_verification_email( $user_id );
-        self::redirect_to_verify_required();
+        self::maybe_resend_verification_email( $user_id, 'checkout' );
+        self::redirect_to_verify_required( 'checkout' );
 
         return $passed;
     }
@@ -499,9 +499,17 @@ class WRPA_Access {
 
     /**
      * Redirects the visitor to the verification required holding page.
+     *
+     * @param string $context Optional registration context.
      */
-    protected static function redirect_to_verify_required() : void {
+    protected static function redirect_to_verify_required( string $context = '' ) : void {
         $destination = self::resolve_verify_required_url();
+
+        $context = sanitize_key( $context );
+
+        if ( 'checkout' === $context ) {
+            $destination = add_query_arg( 'context', $context, $destination );
+        }
 
         wp_safe_redirect( $destination );
         exit;
@@ -548,9 +556,10 @@ class WRPA_Access {
      * Dispatches the verification email again while respecting per-user rate limits.
      *
      * @param int|null $user_id Optional user id. Defaults to the current user.
+     * @param string   $context Registration context for redirect handling.
      * @return void
      */
-    protected static function maybe_resend_verification_email( ?int $user_id = null ) : void {
+    protected static function maybe_resend_verification_email( ?int $user_id = null, string $context = 'signup' ) : void {
         if ( ! class_exists( __NAMESPACE__ . '\WRPA_Email' ) ) {
             return;
         }
@@ -565,6 +574,13 @@ class WRPA_Access {
             return;
         }
 
-        WRPA_Email::send_verification( $user_id );
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Email_Verify' ) ) {
+            $context = WRPA_Email_Verify::normalize_context( $context );
+            update_user_meta( $user_id, WRPA_Email_Verify::META_CONTEXT, $context );
+        } else {
+            $context = 'signup';
+        }
+
+        WRPA_Email::send_verification( $user_id, false, $context );
     }
 }

@@ -423,10 +423,12 @@ class WRPA_Email {
     /**
      * Sends an email verification link to the specified user.
      *
-     * @param int $user_id User identifier.
+     * @param int         $user_id User identifier.
+     * @param bool        $force   Whether to bypass resend throttle.
+     * @param string|null $context Registration context for redirect handling.
      * @return bool
      */
-    public static function send_verification( $user_id, bool $force = false ) : bool {
+    public static function send_verification( $user_id, bool $force = false, ?string $context = null ) : bool {
         $user_id = absint( $user_id );
 
         if ( ! $user_id ) {
@@ -452,7 +454,17 @@ class WRPA_Email {
                 return false;
             }
 
-            $verify_url = WRPA_Email_Verify::get_verify_url( $user_id );
+            $stored_context = get_user_meta( $user_id, WRPA_Email_Verify::META_CONTEXT, true );
+
+            if ( ( null === $context || '' === $context ) && is_string( $stored_context ) && '' !== $stored_context ) {
+                $context = $stored_context;
+            }
+
+            $context = WRPA_Email_Verify::normalize_context( (string) $context );
+
+            update_user_meta( $user_id, WRPA_Email_Verify::META_CONTEXT, $context );
+
+            $verify_url = WRPA_Email_Verify::get_verify_url( $user_id, $context );
 
             if ( '' === $verify_url ) {
                 return false;
