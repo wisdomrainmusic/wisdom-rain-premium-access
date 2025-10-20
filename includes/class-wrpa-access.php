@@ -124,8 +124,7 @@ class WRPA_Access {
             return;
         }
 
-        $bypass_roles = [ 'administrator', 'editor', 'shop_manager' ];
-        if ( array_intersect( $bypass_roles, (array) $user->roles ) ) {
+        if ( self::should_bypass_verification( $user ) ) {
             return;
         }
 
@@ -225,11 +224,28 @@ class WRPA_Access {
             return $passed;
         }
 
-        if ( ! is_user_logged_in() || ! self::user_has_active_subscription( get_current_user_id() ) ) {
-            wc_add_notice( __( 'Please sign up for a subscription before purchasing.', 'wrpa' ), 'error' );
-            wp_safe_redirect( home_url( '/sign-up/' ) );
-            exit;
+        if ( ! is_user_logged_in() ) {
+            return $passed;
         }
+
+        $user = wp_get_current_user();
+
+        if ( ! ( $user instanceof \WP_User ) ) {
+            return $passed;
+        }
+
+        if ( self::should_bypass_verification( $user ) ) {
+            return $passed;
+        }
+
+        $user_id = (int) $user->ID;
+
+        if ( $user_id <= 0 || ! self::user_requires_verification( $user_id ) ) {
+            return $passed;
+        }
+
+        self::maybe_resend_verification_email( $user_id );
+        self::redirect_to_verify_required();
 
         return $passed;
     }
@@ -500,6 +516,15 @@ class WRPA_Access {
         }
 
         return ! WRPA_Email_Verify::is_verified( $user_id );
+    }
+
+    /**
+     * Determines whether the provided user should bypass verification gates entirely.
+     */
+    protected static function should_bypass_verification( \WP_User $user ) : bool {
+        $bypass_roles = [ 'administrator', 'editor', 'shop_manager' ];
+
+        return (bool) array_intersect( $bypass_roles, (array) $user->roles );
     }
 
     /**
