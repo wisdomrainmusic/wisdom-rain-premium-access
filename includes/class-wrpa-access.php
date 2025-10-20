@@ -26,6 +26,10 @@ class WRPA_Access {
         // WooCommerce purchase restriction
         add_filter( 'woocommerce_add_to_cart_validation', [ __CLASS__, 'prevent_non_subscriber_checkout' ], 10, 3 );
 
+        // Remove WooCommerce default login requirement messaging on checkout for WRPA flows.
+        add_filter( 'woocommerce_checkout_login_message', [ __CLASS__, 'filter_checkout_login_message' ], PHP_INT_MAX );
+        add_filter( 'woocommerce_checkout_must_be_logged_in_message', [ __CLASS__, 'filter_checkout_login_message' ], PHP_INT_MAX );
+
         // Redirect verified users to dashboard
         add_action( 'init', [ __CLASS__, 'handle_email_verification_redirect' ] );
 
@@ -110,7 +114,14 @@ class WRPA_Access {
             return;
         }
 
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '';
+
         if ( ! is_user_logged_in() ) {
+            if ( self::request_matches_path( $request_uri, '/checkout/' ) ) {
+                wp_safe_redirect( home_url( '/sign-up/' ) );
+                exit;
+            }
+
             return;
         }
 
@@ -140,8 +151,6 @@ class WRPA_Access {
         if ( in_array( $status, [ 'success', 'already-verified' ], true ) ) {
             return;
         }
-
-        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '';
 
         $allowed_paths = [
             '/verify-required/',
@@ -175,6 +184,23 @@ class WRPA_Access {
 
         // Default catch-all: keep user on verify-required if they try to hit other protected pages directly.
         self::redirect_to_verify_required();
+    }
+
+    /**
+     * Suppresses WooCommerce login prompts on the checkout page for WRPA-controlled flows.
+     */
+    public static function filter_checkout_login_message( $message ) {
+        if ( is_admin() ) {
+            return $message;
+        }
+
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '';
+
+        if ( self::request_matches_path( $request_uri, '/checkout/' ) ) {
+            return '';
+        }
+
+        return $message;
     }
 
     /**

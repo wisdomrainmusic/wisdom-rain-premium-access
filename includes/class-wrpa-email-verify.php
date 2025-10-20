@@ -194,6 +194,7 @@ class WRPA_Email_Verify {
         delete_user_meta( $user_id, self::META_CONTEXT );
 
         do_action( 'wrpa_email_verified', $user_id );
+        do_action( 'wrpa_user_verified_email', $user_id );
 
         self::redirect_with_flag( 'success', $context, $user_id );
     }

@@ -28,7 +28,8 @@ class WRPA_Email {
         add_action( 'wrpa_send_verification_email', [ __CLASS__, 'send_verification' ], 10, 1 );
 
         // Dispatch welcome email immediately after verification succeeds.
-        add_action( 'wrpa_email_verified', [ __CLASS__, 'send_welcome_after_verification' ], 10, 1 );
+        add_action( 'wrpa_email_verified', [ __CLASS__, 'send_welcome_after_verify' ], 10, 1 );
+        add_action( 'wrpa_user_verified_email', [ __CLASS__, 'send_welcome_after_verify' ], 10, 1 );
 
     }
 
@@ -491,7 +492,7 @@ class WRPA_Email {
     /**
      * Sends the welcome email immediately after a user verifies their address.
      */
-    public static function send_welcome_after_verification( $user_id ) : void {
+    public static function send_welcome_after_verify( $user_id ) : void {
         $user_id = absint( $user_id );
 
         if ( ! $user_id ) {
@@ -499,6 +500,13 @@ class WRPA_Email {
         }
 
         self::send_email( $user_id, 'welcome' );
+    }
+
+    /**
+     * @deprecated 2.0.0 Backwards compatibility shim. Use send_welcome_after_verify().
+     */
+    public static function send_welcome_after_verification( $user_id ) : void {
+        self::send_welcome_after_verify( $user_id );
     }
 
     /**
