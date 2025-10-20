@@ -27,13 +27,18 @@ class WRPA_Core {
 
         self::define_constants();
         self::load_dependencies();
+
         \WRPA\WRPA_Urls::init();
+
         \WRPA\WRPA_Access::init();
         \WRPA\WRPA_Email::init();
+        \WRPA\WRPA_Email_Cron::init();
+        \WRPA\WRPA_Admin::init();
+
         \WRPA\WRPA_Email_Verify::init();
         \WRPA\WRPA_Email_Admin::init();
-        \WRPA\WRPA_Email_Cron::init();
         \WRPA\WRPA_Email_Unsubscribe::init();
+
         self::init_hooks();
     }
 
@@ -83,7 +88,6 @@ class WRPA_Core {
      * @return void
      */
     private static function init_hooks() {
-        \WRPA\WRPA_Admin::init();
         add_action( 'admin_init', [ __CLASS__, 'admin_init' ] );
         add_action( 'template_redirect', [ __CLASS__, 'frontend_init' ] );
     }
