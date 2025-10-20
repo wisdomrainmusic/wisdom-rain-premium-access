@@ -30,6 +30,7 @@ class WRPA_Core {
 
         \WRPA\WRPA_Urls::init();
 
+        // Core membership stack — order is important for dependency wiring.
         \WRPA\WRPA_Access::init();
         \WRPA\WRPA_Email::init();
         \WRPA\WRPA_Email_Cron::init();

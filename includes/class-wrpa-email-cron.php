@@ -25,6 +25,7 @@ class WRPA_Email_Cron {
      * Bootstraps scheduling hooks for recurring email jobs.
      */
     public static function init() : void {
+        // Allow other modules to trigger our registration handler using the fully-qualified class reference.
         add_action( 'user_register', [ '\\WRPA\\WRPA_Email_Cron', 'handle_user_registered' ], 10, 1 );
         add_action( 'init', [ __CLASS__, 'maybe_schedule_daily_event' ] );
         add_action( self::DAILY_HOOK, [ __CLASS__, 'run_daily_jobs' ] );
