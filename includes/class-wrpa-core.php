@@ -119,7 +119,7 @@ class WRPA_Core {
     public static function urls() : array {
         $urls = [
             'subscribe_url'           => home_url( '/subscribe/' ),
-            'dashboard_url'           => home_url( '/dashboard/' ),
+            'dashboard_url'           => defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : home_url( '/wisdom-rain-dashboard/' ),
             'manage_subscription_url' => home_url( '/account/subscriptions/' ),
             'verify_email_url'        => home_url( '/verify-email/' ),
         ];

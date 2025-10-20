@@ -32,6 +32,10 @@ if ( ! defined( 'WRPA_META_EXPIRY' ) ) {
     define( 'WRPA_META_EXPIRY', DAY_IN_SECONDS * 30 );
 }
 
+if ( ! defined( 'WRPA_DASHBOARD_URL' ) ) {
+    define( 'WRPA_DASHBOARD_URL', home_url( '/wisdom-rain-dashboard/' ) );
+}
+
 // === Dosyaları Dahil Et (ileride eklenecek modüller) === //
 $includes = array(
     'includes/class-wrpa-core.php'
