@@ -1819,6 +1819,7 @@ class WRPA_Access {
     public static function restrict_premium_pages() {
         if (
             is_admin()
+            || is_front_page()
             || ( defined( 'DOING_AJAX' ) && DOING_AJAX )
             || ( defined( 'REST_REQUEST' ) && REST_REQUEST )
         ) {
@@ -1826,10 +1827,16 @@ class WRPA_Access {
         }
 
         $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+
+        // 🧠 Whitelisted pages (no redirect protection)
         $whitelist   = [
-            '/sign-up/',
             '/subscribe/',
+            '/sign-up/',
             '/login/',
+            '/my-account/',
+            '/cart/',
+            '/checkout/',
+            '/wisdom-rain-dashboard/',
             '/wp-login.php',
             '/wp-json/',
             '/wp-admin/admin-ajax.php',
