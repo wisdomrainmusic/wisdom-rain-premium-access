@@ -24,6 +24,9 @@ class WRPA_Email {
         add_filter( 'wp_mail_from', fn() => apply_filters( 'wrpa_mail_from', 'no-reply@wisdomrainbookmusic.com' ) );
         add_filter( 'wp_mail_from_name', fn() => apply_filters( 'wrpa_mail_from_name', 'Wisdom Rain' ) );
 
+        // Allow other modules to trigger verification emails via action.
+        add_action( 'wrpa_send_verification_email', [ __CLASS__, 'send_verification' ], 10, 2 );
+
     }
 
     /**
@@ -420,7 +423,7 @@ class WRPA_Email {
      * @param int $user_id User identifier.
      * @return bool Whether a verification email was attempted.
      */
-    public static function send_verification( $user_id ) {
+    public static function send_verification( $user_id, $token = '' ) {
         $user_id = absint( $user_id );
 
         if ( ! $user_id ) {
@@ -450,7 +453,12 @@ class WRPA_Email {
             return false;
         }
 
-        $token = WRPA_Email_Verify::generate_token( $user_id );
+        if ( '' !== $token ) {
+            update_user_meta( $user_id, WRPA_Email_Verify::META_TOKEN, $token );
+            update_user_meta( $user_id, WRPA_Email_Verify::META_EXPIRES, time() + DAY_IN_SECONDS );
+        } else {
+            $token = WRPA_Email_Verify::generate_token( $user_id );
+        }
 
         if ( '' === $token ) {
             self::log( 'WRPA email verification failed — token could not be generated.', [ 'user_id' => $user_id ] );
