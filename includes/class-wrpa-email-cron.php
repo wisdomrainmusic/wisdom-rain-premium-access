@@ -29,7 +29,6 @@ class WRPA_Email_Cron {
         add_action( 'user_register', [ '\\WRPA\\WRPA_Email_Cron', 'handle_user_registered' ], 10, 1 );
         add_action( 'init', [ __CLASS__, 'maybe_schedule_daily_event' ] );
         add_action( self::DAILY_HOOK, [ __CLASS__, 'run_daily_jobs' ] );
-        add_action( 'user_register', [ __CLASS__, 'handle_user_registered' ], 20, 1 );
         add_action( 'wrpa_access_first_granted', [ __CLASS__, 'handle_first_access_granted' ], 10, 3 );
         add_action( 'woocommerce_order_status_completed', [ __CLASS__, 'trigger_order_completed_emails' ], 20, 1 );
     }
