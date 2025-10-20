@@ -36,6 +36,7 @@ class WRPA_Access {
      * @return void
      */
     public static function init() {
+        add_action( 'template_redirect', [ __CLASS__, 'restrict_premium_pages' ], 1 );
         add_action( 'init', [ __CLASS__, 'register_post_meta' ] );
         add_action( 'add_meta_boxes', [ __CLASS__, 'register_meta_box' ] );
         add_action( 'save_post', [ __CLASS__, 'save_restriction_settings' ], 10, 2 );
@@ -44,6 +45,8 @@ class WRPA_Access {
         add_action( 'template_redirect', [ __CLASS__, 'handle_access' ], 5 );
         add_action( 'woocommerce_order_status_completed', [ __CLASS__, 'grant_access' ] );
         add_action( 'woocommerce_payment_complete', [ __CLASS__, 'grant_access' ] );
+        add_filter( 'woocommerce_add_to_cart_validation', [ __CLASS__, 'prevent_non_subscriber_checkout' ], 10, 3 );
+        add_action( 'init', [ __CLASS__, 'handle_email_verification_redirect' ] );
     }
 
     public static function check_access() {
@@ -434,6 +437,68 @@ class WRPA_Access {
     }
 
     /**
+     * Prevent WooCommerce checkout for users without an active subscription.
+     *
+     * @param bool $passed     Whether validation passed.
+     * @param int  $product_id Product identifier.
+     * @param int  $quantity   Quantity being added.
+     * @return bool
+     */
+    public static function prevent_non_subscriber_checkout( $passed, $product_id, $quantity ) {
+        unset( $product_id, $quantity );
+
+        if (
+            is_admin()
+            || ( defined( 'DOING_AJAX' ) && DOING_AJAX )
+            || ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+        ) {
+            return $passed;
+        }
+
+        $user_id = get_current_user_id();
+
+        if ( is_user_logged_in() && self::user_has_active_subscription( $user_id ) ) {
+            return $passed;
+        }
+
+        if ( function_exists( 'wc_add_notice' ) ) {
+            wc_add_notice( __( 'Please sign up for a subscription before purchasing.', 'wrpa' ), 'error' );
+        }
+
+        $destination = apply_filters( 'wrpa/non_subscriber_checkout_redirect', home_url( '/sign-up/' ) );
+
+        wp_safe_redirect( $destination );
+        exit;
+    }
+
+    /**
+     * After email verification, redirect authenticated users to their dashboard.
+     *
+     * @return void
+     */
+    public static function handle_email_verification_redirect() {
+        $flag = isset( $_GET['wrpa_verified'] ) ? sanitize_text_field( wp_unslash( $_GET['wrpa_verified'] ) ) : '';
+
+        if ( 'true' !== $flag || ! is_user_logged_in() ) {
+            return;
+        }
+
+        $default_dashboard = home_url( '/wisdom-rain-dashboard/' );
+
+        if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $core_urls = WRPA_Core::urls();
+            if ( ! empty( $core_urls['dashboard_url'] ) ) {
+                $default_dashboard = $core_urls['dashboard_url'];
+            }
+        }
+
+        $destination = apply_filters( 'wrpa/email_verification_redirect_url', $default_dashboard );
+
+        wp_safe_redirect( $destination );
+        exit;
+    }
+
+    /**
      * Redirects visitors away from restricted posts before templates render.
      *
      * @return void
@@ -495,6 +560,27 @@ class WRPA_Access {
         }
 
         if ( function_exists( 'is_page' ) && is_page( [ 'checkout', 'cart', 'my-account' ] ) ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Determines whether the current request targets a premium content context.
+     *
+     * @return bool
+     */
+    protected static function is_premium_request() {
+        $post_types = self::get_premium_post_types();
+
+        if ( ! empty( $post_types ) && ( is_singular( $post_types ) || is_post_type_archive( $post_types ) ) ) {
+            return true;
+        }
+
+        $taxonomies = self::get_premium_taxonomies();
+
+        if ( ! empty( $taxonomies ) && is_tax( $taxonomies ) ) {
             return true;
         }
 
@@ -724,6 +810,93 @@ class WRPA_Access {
         }
 
         return self::format_timestamp_as_date( $timestamp );
+    }
+
+    /**
+     * Determines if the provided user has an active subscription.
+     *
+     * @param int $user_id User identifier.
+     * @return bool
+     */
+    protected static function user_has_active_subscription( $user_id ) {
+        $user_id = absint( $user_id );
+
+        if ( ! $user_id ) {
+            return false;
+        }
+
+        $has_active = false;
+        $membership = self::get_user_membership( $user_id );
+
+        if ( $membership && self::user_membership_is_active( $membership ) ) {
+            $has_active = true;
+        } else {
+            $legacy_flag  = get_user_meta( $user_id, 'wrpa_active_subscription', true );
+            $legacy_promo = get_user_meta( $user_id, 'wrpa_premium_active', true );
+
+            $has_active = (bool) $legacy_flag || (bool) $legacy_promo;
+
+            if ( ! $has_active && ! self::subscription_has_expired( $user_id ) ) {
+                $has_active = (bool) get_user_meta( $user_id, self::USER_ACCESS_EXPIRES_META, true );
+            }
+        }
+
+        /**
+         * Filters the active subscription determination.
+         *
+         * @param bool $has_active Whether the user is considered active.
+         * @param int  $user_id    User identifier.
+         */
+        return (bool) apply_filters( 'wrpa/user_has_active_subscription', $has_active, $user_id );
+    }
+
+    /**
+     * Returns the list of premium post types gated globally.
+     *
+     * @return string[]
+     */
+    protected static function get_premium_post_types() {
+        $post_types = [
+            'library',
+            'music',
+            'meditation',
+            'meditations',
+            'magazine',
+            'magazines',
+            'sleep_story',
+            'sleep-stories',
+            'children_story',
+            'childrens-stories',
+        ];
+
+        /**
+         * Filters the globally restricted premium post types.
+         *
+         * @param string[] $post_types Post type slugs.
+         */
+        return (array) apply_filters( 'wrpa/premium_post_types', $post_types );
+    }
+
+    /**
+     * Returns the list of premium taxonomies gated globally.
+     *
+     * @return string[]
+     */
+    protected static function get_premium_taxonomies() {
+        $taxonomies = [
+            'library_category',
+            'music_category',
+            'meditation_category',
+            'magazine_category',
+            'children_story_category',
+        ];
+
+        /**
+         * Filters the globally restricted premium taxonomies.
+         *
+         * @param string[] $taxonomies Taxonomy slugs.
+         */
+        return (array) apply_filters( 'wrpa/premium_taxonomies', $taxonomies );
     }
 
     /**
@@ -1635,6 +1808,55 @@ class WRPA_Access {
 
         if ( function_exists( 'error_log' ) ) {
             error_log( $entry );
+        }
+    }
+
+    /**
+     * Restrict access to global premium post types, archives, and taxonomies.
+     *
+     * @return void
+     */
+    public static function restrict_premium_pages() {
+        if (
+            is_admin()
+            || ( defined( 'DOING_AJAX' ) && DOING_AJAX )
+            || ( defined( 'REST_REQUEST' ) && REST_REQUEST )
+        ) {
+            return;
+        }
+
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( $_SERVER['REQUEST_URI'] ) : '';
+        $whitelist   = [
+            '/sign-up/',
+            '/subscribe/',
+            '/login/',
+            '/wp-login.php',
+            '/wp-json/',
+            '/wp-admin/admin-ajax.php',
+        ];
+
+        foreach ( $whitelist as $allowed ) {
+            if ( false !== stripos( $request_uri, $allowed ) ) {
+                return;
+            }
+        }
+
+        if ( ! self::is_premium_request() ) {
+            return;
+        }
+
+        $user_id = get_current_user_id();
+
+        if ( ! is_user_logged_in() || ! self::user_has_active_subscription( $user_id ) ) {
+            $destination  = home_url( '/subscribe/' );
+            $current_path = $request_uri ? wp_parse_url( $request_uri, PHP_URL_PATH ) : '';
+
+            if ( untrailingslashit( $current_path ) === '/subscribe' ) {
+                return;
+            }
+
+            wp_safe_redirect( $destination );
+            exit;
         }
     }
 }
