@@ -108,6 +108,12 @@ class WRPA_Access {
             return;
         }
 
+        $status = isset( $_GET['wrpa-verify-status'] ) ? sanitize_key( wp_unslash( $_GET['wrpa-verify-status'] ) ) : '';
+
+        if ( 'success' === $status ) {
+            return;
+        }
+
         $request_uri = $_SERVER['REQUEST_URI'] ?? '';
 
         $allowed_paths = [

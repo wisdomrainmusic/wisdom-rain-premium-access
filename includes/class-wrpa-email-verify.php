@@ -22,9 +22,17 @@ class WRPA_Email_Verify {
     const META_LAST_SENT = 'wrpa_verify_last_sent';
 
     /**
+     * Ensures verify handlers only run once per request lifecycle.
+     *
+     * @var bool
+     */
+    protected static $handled_request = false;
+
+    /**
      * Bootstraps verification endpoint listeners.
      */
     public static function init() : void {
+        add_action( 'init', [ __CLASS__, 'maybe_handle_request' ], 0 );
         add_action( 'template_redirect', [ __CLASS__, 'maybe_handle_request' ], 0 );
         add_action( 'init', [ __CLASS__, 'maybe_handle_resend_request' ] );
     }
@@ -106,11 +114,17 @@ class WRPA_Email_Verify {
      * Validates verification requests routed through ?wrpa-verify=1.
      */
     public static function maybe_handle_request() : void {
+        if ( self::$handled_request ) {
+            return;
+        }
+
         $is_verify_request = '1' === (string) filter_input( INPUT_GET, 'wrpa-verify', FILTER_SANITIZE_NUMBER_INT );
 
         if ( ! $is_verify_request && ! self::is_verify_email_path_request() ) {
             return;
         }
+
+        self::$handled_request = true;
 
         if ( ! $is_verify_request ) {
             self::redirect_with_flag( 'error' );
@@ -229,7 +243,11 @@ class WRPA_Email_Verify {
 
         $destination = add_query_arg( 'wrpa-verify-status', $status, $destination );
 
-        wp_safe_redirect( $destination );
+        nocache_headers();
+
+        $status_code = 'success' === $status ? 303 : 302;
+
+        wp_safe_redirect( $destination, $status_code );
         exit;
     }
 
@@ -246,19 +264,7 @@ class WRPA_Email_Verify {
      * Returns the URL used for successful verification redirection.
      */
     protected static function dashboard_url() : string {
-        if ( class_exists( __NAMESPACE__ . '\WRPA_Access' ) && method_exists( WRPA_Access::class, 'get_dashboard_url' ) ) {
-            return WRPA_Access::get_dashboard_url();
-        }
-
-        $dashboard = defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : site_url( '/wisdom-rain-dashboard/' );
-
-        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
-            $urls = WRPA_Core::urls();
-
-            if ( ! empty( $urls['dashboard_url'] ) ) {
-                $dashboard = $urls['dashboard_url'];
-            }
-        }
+        $dashboard = site_url( '/wisdom-rain-dashboard/' );
 
         return apply_filters( 'wrpa_dashboard_redirect_url', $dashboard );
     }
