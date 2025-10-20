@@ -25,7 +25,7 @@ class WRPA_Email_Verify {
      * Bootstraps verification endpoint listeners.
      */
     public static function init() : void {
-        add_action( 'init', [ __CLASS__, 'maybe_handle_request' ] );
+        add_action( 'template_redirect', [ __CLASS__, 'maybe_handle_request' ], 0 );
         add_action( 'init', [ __CLASS__, 'maybe_handle_resend_request' ] );
     }
 
@@ -91,17 +91,7 @@ class WRPA_Email_Verify {
             return home_url( '/' );
         }
 
-        $base = home_url( '/verify-email/' );
-
-        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
-            $urls = WRPA_Core::urls();
-
-            if ( ! empty( $urls['verify_email_url'] ) ) {
-                $base = $urls['verify_email_url'];
-            }
-        }
-
-        $base = apply_filters( 'wrpa_verify_email_base_url', $base, $user_id );
+        $base = self::verify_email_base_url( $user_id );
 
         return add_query_arg(
             [
@@ -116,10 +106,23 @@ class WRPA_Email_Verify {
      * Validates verification requests routed through ?wrpa-verify=1.
      */
     public static function maybe_handle_request() : void {
-        if ( '1' !== (string) filter_input( INPUT_GET, 'wrpa-verify', FILTER_SANITIZE_NUMBER_INT ) ) {
+        $is_verify_request = '1' === (string) filter_input( INPUT_GET, 'wrpa-verify', FILTER_SANITIZE_NUMBER_INT );
+
+        if ( ! $is_verify_request && ! self::is_verify_email_path_request() ) {
             return;
         }
 
+        if ( ! $is_verify_request ) {
+            self::redirect_with_flag( 'error' );
+        }
+
+        self::handle_request();
+    }
+
+    /**
+     * Handles verification once the request is confirmed for processing.
+     */
+    protected static function handle_request() : void {
         $raw_token = isset( $_GET['token'] ) ? wp_unslash( $_GET['token'] ) : '';
         $token     = sanitize_text_field( $raw_token );
 
@@ -153,7 +156,7 @@ class WRPA_Email_Verify {
         }
 
         if ( self::is_verified( $user_id ) ) {
-            self::redirect_with_flag( 'already-verified' );
+            self::redirect_with_flag( 'success' );
         }
 
         update_user_meta( $user_id, self::META_FLAG, 1 );
@@ -193,6 +196,24 @@ class WRPA_Email_Verify {
         }
 
         self::redirect_with_flag( 'rate-limit' );
+    }
+
+    /**
+     * Determines the base URL used for email verification links.
+     */
+    protected static function verify_email_base_url( int $user_id = 0 ) : string {
+        $base    = home_url( '/verify-email/' );
+        $user_id = absint( $user_id );
+
+        if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
+            $urls = WRPA_Core::urls();
+
+            if ( ! empty( $urls['verify_email_url'] ) ) {
+                $base = $urls['verify_email_url'];
+            }
+        }
+
+        return apply_filters( 'wrpa_verify_email_base_url', $base, $user_id );
     }
 
     /**
@@ -244,5 +265,32 @@ class WRPA_Email_Verify {
         }
 
         return apply_filters( 'wrpa_verify_required_url', $pending );
+    }
+
+    /**
+     * Checks whether the current request targets the verification endpoint path.
+     */
+    protected static function is_verify_email_path_request() : bool {
+        if ( empty( $_SERVER['REQUEST_URI'] ) ) {
+            return false;
+        }
+
+        $request_path = strtok( wp_unslash( $_SERVER['REQUEST_URI'] ), '?' );
+
+        if ( ! is_string( $request_path ) || '' === $request_path ) {
+            return false;
+        }
+
+        $request_path = trailingslashit( '/' . ltrim( wp_normalize_path( $request_path ), '/' ) );
+
+        $base_path = wp_parse_url( self::verify_email_base_url(), PHP_URL_PATH );
+
+        if ( ! is_string( $base_path ) || '' === $base_path ) {
+            return false;
+        }
+
+        $base_path = trailingslashit( '/' . ltrim( wp_normalize_path( $base_path ), '/' ) );
+
+        return $request_path === $base_path;
     }
 }
