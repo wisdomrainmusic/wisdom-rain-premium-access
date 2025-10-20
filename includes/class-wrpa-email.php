@@ -297,7 +297,7 @@ class WRPA_Email {
             'subscribe_url'           => home_url( '/subscribe/' ),
             'dashboard_url'           => home_url( '/dashboard/' ),
             'manage_subscription_url' => home_url( '/account/subscriptions/' ),
-            'verify_email_url'        => $user_id ? WRPA_Email_Verify::get_verify_url( $user_id ) : home_url( '/wisdom-rain-dashboard/' ),
+            'verify_email_url'        => $user_id ? WRPA_Email_Verify::get_verify_url( $user_id ) : site_url( '/wisdom-rain-dashboard/' ),
         ];
 
         if ( class_exists( __NAMESPACE__ . '\\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {

@@ -33,7 +33,7 @@ if ( ! defined( 'WRPA_META_EXPIRY' ) ) {
 }
 
 if ( ! defined( 'WRPA_DASHBOARD_URL' ) ) {
-    define( 'WRPA_DASHBOARD_URL', home_url( '/wisdom-rain-dashboard/' ) );
+    define( 'WRPA_DASHBOARD_URL', site_url( '/wisdom-rain-dashboard/' ) );
 }
 
 // === Dosyaları Dahil Et (ileride eklenecek modüller) === //

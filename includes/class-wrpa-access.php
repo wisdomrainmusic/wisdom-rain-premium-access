@@ -14,6 +14,9 @@ class WRPA_Access {
      * Initialize module hooks.
      */
     public static function init() {
+        // Ensure verification success redirects are not overridden by themes.
+        add_action( 'template_redirect', [ __CLASS__, 'maybe_disable_template_redirect_conflicts' ], 0 );
+
         // Enforce verification as early as possible on template redirect.
         add_action( 'template_redirect', [ __CLASS__, 'enforce_email_verification_gate' ], 1 );
 
@@ -242,10 +245,137 @@ class WRPA_Access {
         }
 
         if ( ! $dashboard ) {
-            $dashboard = home_url( '/wisdom-rain-dashboard/' );
+            $dashboard = site_url( '/wisdom-rain-dashboard/' );
         }
 
         return apply_filters( 'wrpa_dashboard_redirect_url', $dashboard );
+    }
+
+    /**
+     * Prevents theme-level template_redirect logic from hijacking verification success redirects.
+     */
+    public static function maybe_disable_template_redirect_conflicts() : void {
+        $status = isset( $_GET['wrpa-verify-status'] ) ? sanitize_key( wp_unslash( $_GET['wrpa-verify-status'] ) ) : '';
+
+        if ( 'success' !== $status ) {
+            return;
+        }
+
+        $request_uri = isset( $_SERVER['REQUEST_URI'] ) ? wp_unslash( (string) $_SERVER['REQUEST_URI'] ) : '';
+
+        if ( '' === $request_uri ) {
+            return;
+        }
+
+        $request_path = strtok( $request_uri, '?' );
+
+        if ( ! is_string( $request_path ) || '' === $request_path ) {
+            return;
+        }
+
+        $request_path = trailingslashit( '/' . ltrim( wp_normalize_path( $request_path ), '/' ) );
+
+        $dashboard_path = wp_parse_url( self::get_dashboard_url(), PHP_URL_PATH );
+
+        if ( ! is_string( $dashboard_path ) || '' === $dashboard_path ) {
+            return;
+        }
+
+        $dashboard_path = trailingslashit( '/' . ltrim( wp_normalize_path( $dashboard_path ), '/' ) );
+
+        if ( $request_path !== $dashboard_path ) {
+            return;
+        }
+
+        self::disable_non_wrpa_template_redirects();
+    }
+
+    /**
+     * Removes non-WRPA callbacks from the template_redirect hook for the current request.
+     */
+    protected static function disable_non_wrpa_template_redirects() : void {
+        global $wp_filter;
+
+        if ( empty( $wp_filter['template_redirect'] ) ) {
+            return;
+        }
+
+        $hook = $wp_filter['template_redirect'];
+
+        if ( $hook instanceof \WP_Hook ) {
+            $callbacks = $hook->callbacks;
+        } elseif ( is_array( $hook ) ) {
+            $callbacks = $hook;
+        } else {
+            return;
+        }
+
+        if ( empty( $callbacks ) ) {
+            return;
+        }
+
+        $removals = [];
+
+        foreach ( $callbacks as $priority => $functions ) {
+            foreach ( $functions as $data ) {
+                if ( empty( $data['function'] ) ) {
+                    continue;
+                }
+
+                $callback = $data['function'];
+
+                if ( self::is_wrpa_callback( $callback ) ) {
+                    continue;
+                }
+
+                $removals[] = [ $callback, $priority ];
+            }
+        }
+
+        foreach ( $removals as $removal ) {
+            remove_action( 'template_redirect', $removal[0], $removal[1] );
+        }
+    }
+
+    /**
+     * Determines if the provided callback belongs to the WRPA namespace/classes.
+     *
+     * @param mixed $callback Callback registered on template_redirect.
+     */
+    protected static function is_wrpa_callback( $callback ) : bool {
+        if ( is_array( $callback ) && isset( $callback[0] ) ) {
+            $target = $callback[0];
+
+            if ( is_object( $target ) ) {
+                $target = get_class( $target );
+            }
+
+            if ( is_string( $target ) ) {
+                $target = ltrim( $target, '\\' );
+
+                if ( 0 === strpos( $target, __NAMESPACE__ . '\\' ) ) {
+                    return true;
+                }
+
+                if ( 0 === strpos( $target, 'WRPA_' ) ) {
+                    return true;
+                }
+            }
+        }
+
+        if ( is_string( $callback ) ) {
+            $function = ltrim( $callback, '\\' );
+
+            if ( 0 === strpos( $function, __NAMESPACE__ . '\\' ) ) {
+                return true;
+            }
+
+            if ( 0 === strpos( $function, 'WRPA_' ) || 0 === strpos( $function, 'wrpa_' ) ) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

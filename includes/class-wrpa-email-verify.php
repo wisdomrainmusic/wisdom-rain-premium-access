@@ -77,7 +77,7 @@ class WRPA_Email_Verify {
         $user_id = absint( $user_id );
 
         if ( ! $user_id ) {
-            return defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : home_url( '/wisdom-rain-dashboard/' );
+            return defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : site_url( '/wisdom-rain-dashboard/' );
         }
 
         $token   = get_user_meta( $user_id, self::META_TOKEN, true );
@@ -88,7 +88,7 @@ class WRPA_Email_Verify {
         }
 
         if ( ! $token ) {
-            return defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : home_url( '/wisdom-rain-dashboard/' );
+            return defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : site_url( '/wisdom-rain-dashboard/' );
         }
 
         $base = self::verify_email_base_url( $user_id );
@@ -250,7 +250,7 @@ class WRPA_Email_Verify {
             return WRPA_Access::get_dashboard_url();
         }
 
-        $dashboard = defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : home_url( '/wisdom-rain-dashboard/' );
+        $dashboard = defined( 'WRPA_DASHBOARD_URL' ) ? WRPA_DASHBOARD_URL : site_url( '/wisdom-rain-dashboard/' );
 
         if ( class_exists( __NAMESPACE__ . '\WRPA_Core' ) && method_exists( WRPA_Core::class, 'urls' ) ) {
             $urls = WRPA_Core::urls();
