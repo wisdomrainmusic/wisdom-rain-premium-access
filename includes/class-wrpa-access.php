@@ -22,6 +22,9 @@ class WRPA_Access {
 
         // Redirect verified users to dashboard
         add_action( 'init', [ __CLASS__, 'handle_email_verification_redirect' ] );
+
+        // Persist membership metadata for brand-new signups.
+        add_action( 'user_register', [ __CLASS__, 'handle_user_registered' ], 10, 1 );
     }
 
     /**
@@ -110,6 +113,30 @@ class WRPA_Access {
             wp_safe_redirect( home_url( '/wisdom-rain-dashboard/' ) );
             exit;
         }
+    }
+
+    /**
+     * Records baseline membership metadata when a new user account is created.
+     *
+     * @param int $user_id The identifier of the user that just registered.
+     * @return void
+     */
+    public static function handle_user_registered( $user_id ) {
+        $user_id = absint( $user_id );
+
+        if ( ! $user_id ) {
+            return;
+        }
+
+        $registered_at = current_time( 'mysql', true );
+
+        update_user_meta( $user_id, 'wrpa_access_registered_at', $registered_at );
+
+        if ( ! metadata_exists( 'user', $user_id, 'wrpa_active_subscription' ) ) {
+            update_user_meta( $user_id, 'wrpa_active_subscription', '' );
+        }
+
+        do_action( 'wrpa/access_user_registered', $user_id );
     }
 
     /**
